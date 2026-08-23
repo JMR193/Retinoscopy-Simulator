@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network Security Configuration — JMR Technologies Retinoscopy Simulator
+  Blocks all cleartext (HTTP) traffic as required by Google Play Store policy.
+  All network calls must use HTTPS/TLS.
+-->
+<network-security-config>
+    <!-- Block cleartext HTTP traffic for all domains -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- Trust system CA certificates -->
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!--
+    OPTIONAL: Certificate pinning for specific domains if you add API calls later.
+    Uncomment and replace with your actual domain and certificate hash.
+
+    <domain-config>
+        <domain includeSubdomains="true">api.jmrtech.com</domain>
+        <pin-set expiration="2027-01-01">
+            <pin digest="SHA-256">REPLACE_WITH_YOUR_CERT_BASE64_HASH=</pin>
+        </pin-set>
+    </domain-config>
+    -->
+
+    <!-- Allow localhost for Flutter debug tooling only (debug builds) -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

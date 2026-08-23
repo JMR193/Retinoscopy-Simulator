@@ -1,0 +1,55 @@
+name: retinoscopy_simulator
+description: 'Retinoscopy Simulator — an advanced clinical training tool for ophthalmologists and optometrists to learn and practice streak retinoscopy, refraction techniques, and refractive error interpretation. Developed by JMR Technologies.'
+publish_to: 'none'
+
+version: 1.2.0+3
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  shared_preferences: ^2.3.2
+  url_launcher: ^6.3.0
+  package_info_plus: ^10.2.1
+  provider: ^6.1.2
+  pdf: ^3.13.0
+  printing: ^5.15.0
+  share_plus: ^13.3.0
+  path_provider: ^2.1.4
+  intl: ^0.20.3
+  qr: ^3.0.2
+  audioplayers: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/minus_sphere.png
+    - assets/images/plus_sphere.png
+    - assets/images/minus_cylinder.png
+    - assets/images/plus_cylinder.png
+    - assets/audio/
+
+flutter_launcher_icons:
+  android: 'launcher_icon'
+  ios: true
+  image_path: 'assets/images/app_icon.jpg'
+  remove_alpha_ios: true
+  adaptive_icon_background: '#1565C0'
+  adaptive_icon_foreground: 'assets/images/app_icon.jpg'
+  web:
+    generate: true
+    image_path: 'assets/images/app_icon.jpg'
+    background_color: '#1565C0'
+    theme_color: '#1565C0'
+
