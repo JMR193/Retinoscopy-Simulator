@@ -116,43 +116,6 @@ Reflex parameters (speed, width, brightness, and offset) dynamically scale as no
 
 ---
 
-## 🏗️ Architecture & Project Structure
-
-`
-├── lib/
-│   ├── main.dart                               # App entrypoint, theme initialization & navigation
-│   ├── models/
-│   │   └── patient_profile.dart                # Patient Rx data model & persistence service
-│   ├── state/
-│   │   └── retinoscopy_state.dart              # Core optical physics engine & state provider
-│   ├── services/
-│   │   ├── ai_engine.dart                      # Offline AI clinical reasoning engine
-│   │   ├── audio_service.dart                  # Audio feedback and sound cue service
-│   │   ├── certificate_service.dart            # PDF Clinical Competency certification generator
-│   │   └── storage_service.dart                # Local SharedPreferences storage & history
-│   ├── widgets/
-│   │   ├── realistic_eye.dart                  # Procedural eye painter with PLR & fundus reflex
-│   │   ├── trial_lens_overlay.dart             # 3D trial frame with dynamic power tabs & axis ring
-│   │   ├── optical_ray_diagram.dart            # 2D cross-sectional conjugate ray visualizer
-│   │   ├── thibos_vector_plot.dart             # (J0, J45) Fourier vector space plot
-│   │   ├── power_cross_view.dart               # Dynamic 2-meridian optical power cross
-│   │   └── subjective_view.dart                # Subjective Snellen acuity chart simulation
-│   └── screens/
-│       ├── retinoscopy_simulator_screen.dart   # Primary interactive simulation engine
-│       ├── exam_screen.dart                    # Timed 10-case Board competency exam
-│       ├── patient_profiles_screen.dart        # Patient case manager & Rx builder
-│       ├── optical_calculator_screen.dart      # Transposition & power cross calculator
-│       ├── handbook_screen.dart                # 7-chapter clinical masterclass reference
-│       ├── ai_tutor_screen.dart                # AI clinical optics assistant & quiz mode
-│       ├── ar_mode_screen.dart                 # Camera-based AR reticle trainer
-│       ├── history_screen.dart                 # Exam score records & accuracy analytics
-│       ├── onboarding_screen.dart              # Interactive student onboarding flow
-│       └── about_screen.dart                   # Developer & clinical attribution
-├── android/                                    # Android project configuration & manifest
-├── assets/                                     # Audio cues and high-resolution icons
-└── test/                                       # Unit and widget test suite
-`
-
 ---
 
 ## 🛠️ Getting Started & Installation
