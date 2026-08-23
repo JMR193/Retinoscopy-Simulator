@@ -127,7 +127,6 @@ Reflex parameters (speed, width, brightness, and offset) dynamically scale as no
 
 ### Quick Start
 
-`ash
 # 1. Clone the repository
 git clone https://github.com/<your-username>/retinoscopy-simulator.git
 
@@ -142,19 +141,19 @@ flutter analyze lib/
 
 # 5. Launch app on connected device / emulator
 flutter run
-`
+
 
 ---
 
 ## 📱 Building Android Release APK / App Bundle
 
-`ash
+
 # Build optimized release APK
 flutter build apk --release
 
 # Build Google Play App Bundle (AAB)
 flutter build appbundle --release
-`
+
 
 ---
 
