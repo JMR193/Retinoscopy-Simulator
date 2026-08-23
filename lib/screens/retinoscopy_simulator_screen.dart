@@ -471,6 +471,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
 
   // --- Left Panel: Patient RX Settings ---
   Widget _buildLeftPanel() {
+    final bool isDarkMode = _state.isDarkMode;
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

@@ -145,9 +145,9 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
     if (lower.contains('straddle') || lower.contains('copeland')) {
       return '🎯 **Copeland’s ±45° Straddling Technique (Axis Refinement)**:\n\n'
           'Invented by Jack Copeland, this is the most sensitive clinical test for cylinder axis verification:\n\n'
-          '1. Position the trial cylinder at the estimated axis $\\alpha$.\n'
-          '2. Straddle the streak **45° to the left** ($\\alpha - 45°$) and observe reflex thickness & brightness.\n'
-          '3. Straddle the streak **45° to the right** ($\\alpha + 45°$) and observe reflex thickness & brightness.\n\n'
+          '1. Position the trial cylinder at the estimated axis α.\n'
+          '2. Straddle the streak **45° to the left** (α − 45°) and observe reflex thickness & brightness.\n'
+          '3. Straddle the streak **45° to the right** (α + 45°) and observe reflex thickness & brightness.\n\n'
           '⚖️ **Equilibrium Rule**:\n'
           '• **Both sides equal width & brilliance** ➡️ Cylinder axis is 100% accurate!\n'
           '• **Unequal width** ➡️ Rotate the trial cylinder axis toward the *narrower and brighter* straddle orientation.';
@@ -194,10 +194,10 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
     if (lower.contains('transposition') || lower.contains('cross') || lower.contains('formula') || lower.contains('spherical equivalent')) {
       return '🧮 **Optical Cross & Transposition Master Formula**:\n\n'
           'To transpose a prescription between Plus-Cylinder and Minus-Cylinder forms:\n\n'
-          '1. **New Sphere** = $\\text{Sphere} + \\text{Cylinder}$\n'
-          '2. **New Cylinder** = $-\\text{Cylinder}$ (reverse algebraic sign)\n'
-          '3. **New Axis** = $\\text{Axis} \\pm 90°$ (ensure between 1° and 180°)\n'
-          '4. **Spherical Equivalent (SE)** = $\\text{Sphere} + \\frac{\\text{Cylinder}}{2}$\n\n'
+          '1. **New Sphere** = Sphere + Cylinder\n'
+          '2. **New Cylinder** = −Cylinder (reverse algebraic sign)\n'
+          '3. **New Axis** = Axis ± 90° (ensure between 1° and 180°)\n'
+          '4. **Spherical Equivalent (SE)** = Sphere + (Cylinder / 2)\n\n'
           '📐 **Example**:\n'
           '+2.00 DS −3.00 DC × 75° ➡️\n'
           '• New Sphere: +2.00 + (−3.00) = **−1.00 DS**\n'
