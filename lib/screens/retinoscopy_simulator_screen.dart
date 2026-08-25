@@ -1411,7 +1411,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
               ),
             ],
             const Divider(height: 20),
-            // Live Gross & Net Power Summary Card
+            // Live Gross & Net Power Summary Card with Transposition
             Builder(
               builder: (context) {
                 final double ts = _state.plusLensesSelected ? _state.plusSphere : _state.minusSphere;
@@ -1419,37 +1419,79 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 final double ta = _state.plusLensesSelected ? _state.plusAxis : _state.minusAxis;
                 final double netS = ts - _state.workingDistance;
 
+                // Transposed form
+                final double transS = ts + tc;
+                final double transC = -tc;
+                double transA = ta + 90.0;
+                if (transA > 180.0) transA -= 180.0;
+                final double transNetS = transS - _state.workingDistance;
+
+                final theme = Theme.of(context);
+                final colorScheme = theme.colorScheme;
+                final bool isDark = _state.isDarkMode;
+
                 return Container(
                   padding: const EdgeInsets.all(12),
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: Colors.teal.shade50,
+                    color: isDark ? const Color(0xFF0F2E2E) : Colors.teal.shade50,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.teal.shade200),
+                    border: Border.all(color: isDark ? Colors.teal.shade400 : Colors.teal.shade200),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Icon(Icons.visibility, color: Colors.teal, size: 16),
-                          SizedBox(width: 6),
-                          Text(
-                            'Active Lens Powers (In Phoropter)',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.teal),
+                          Row(
+                            children: [
+                              Icon(Icons.visibility, color: isDark ? Colors.tealAccent : Colors.teal, size: 16),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Active Trial Lens (Phoropter)',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? Colors.tealAccent : Colors.teal),
+                              ),
+                            ],
+                          ),
+                          InkWell(
+                            onTap: () {
+                              _state.switchLensModeWithTransposition(!_state.plusLensesSelected);
+                              AudioService.playTick();
+                            },
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: (isDark ? Colors.tealAccent : Colors.teal).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: (isDark ? Colors.tealAccent : Colors.teal).withValues(alpha: 0.4)),
+                              ),
+                              child: Text(
+                                _state.plusLensesSelected ? '⇄ To Minus Cyl' : '⇄ To Plus Cyl',
+                                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDark ? Colors.tealAccent : Colors.teal.shade800),
+                              ),
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Text(
                         'Gross Retinoscopy: ${_formatRx(ts, tc, ta)}',
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.black87),
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: isDark ? Colors.white : Colors.black87),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'Net Refraction (${_state.workingDistance.toStringAsFixed(2)} D WD): ${_formatRx(netS, tc, ta)}',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.teal.shade900),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.tealAccent : Colors.teal.shade900),
                       ),
+                      if (tc != 0.0) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Transposed Net: ${_formatRx(transNetS, transC, transA)}',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : Colors.teal.shade700),
+                        ),
+                      ],
                     ],
                   ),
                 );

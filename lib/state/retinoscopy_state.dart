@@ -254,7 +254,46 @@ class RetinoscopyState extends ChangeNotifier {
   bool get plusLensesSelected => _plusLensesSelected;
 
   set plusLensesSelected(bool value) {
-    _plusLensesSelected = value;
+    switchLensModeWithTransposition(value);
+  }
+
+  /// Seamlessly shifts trial lens mode and automatically converts/transposes sphere, cylinder, and axis
+  void switchLensModeWithTransposition(bool toPlusLenses) {
+    if (_plusLensesSelected == toPlusLenses) return;
+
+    if (toPlusLenses) {
+      // Switching from Minus to Plus
+      if (_minusSphere != 0.0 || _minusCylinder != 0.0) {
+        if (_minusCylinder.abs() < 0.01) {
+          _plusSphere = _minusSphere;
+          _plusCylinder = 0.0;
+          _plusAxis = _minusAxis;
+        } else {
+          _plusSphere = _minusSphere + _minusCylinder;
+          _plusCylinder = -_minusCylinder;
+          double newAxis = _minusAxis + 90.0;
+          if (newAxis > 180.0) newAxis -= 180.0;
+          _plusAxis = newAxis;
+        }
+      }
+    } else {
+      // Switching from Plus to Minus
+      if (_plusSphere != 0.0 || _plusCylinder != 0.0) {
+        if (_plusCylinder.abs() < 0.01) {
+          _minusSphere = _plusSphere;
+          _minusCylinder = 0.0;
+          _minusAxis = _plusAxis;
+        } else {
+          _minusSphere = _plusSphere + _plusCylinder;
+          _minusCylinder = -_plusCylinder;
+          double newAxis = _plusAxis + 90.0;
+          if (newAxis > 180.0) newAxis -= 180.0;
+          _minusAxis = newAxis;
+        }
+      }
+    }
+
+    _plusLensesSelected = toPlusLenses;
     notifyListeners();
   }
 

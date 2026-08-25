@@ -237,36 +237,37 @@ class EyePainter extends CustomPainter {
     // 4. Draw Choroidal Backscatter Base Glow (Deep Red-Orange Retro-Illumination)
     // Backscatter intensifies when the retinoscope beam aligns centrally over the pupil
     double beamProximity = (1.0 - (beamPosition.abs() / (pupilRadius * 1.6))).clamp(0.0, 1.0);
-    double dynamicChoroidGlow = (retinaOpacity * fundusLuminanceMultiplier * (0.85 + 0.35 * beamProximity)).clamp(0.0, 1.0);
+    double dynamicChoroidGlow = (retinaOpacity * fundusLuminanceMultiplier * (0.92 + 0.45 * beamProximity)).clamp(0.15, 1.0);
 
     final retinaGlowPaint = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFFE53935).withValues(alpha: dynamicChoroidGlow), // Brilliant fundus red
-          const Color(0xFFC62828).withValues(alpha: dynamicChoroidGlow * 0.88),
-          const Color(0xFF880E4F).withValues(alpha: dynamicChoroidGlow * 0.65),
-          const Color(0xFF311B92).withValues(alpha: dynamicChoroidGlow * 0.25),
+          const Color(0xFFFF5722).withValues(alpha: dynamicChoroidGlow), // Brilliant incandescent scarlet
+          const Color(0xFFE53935).withValues(alpha: dynamicChoroidGlow * 0.95),
+          const Color(0xFFC62828).withValues(alpha: dynamicChoroidGlow * 0.85),
+          const Color(0xFF880E4F).withValues(alpha: dynamicChoroidGlow * 0.55),
+          const Color(0xFF311B92).withValues(alpha: dynamicChoroidGlow * 0.20),
           Colors.black,
         ],
-        stops: const [0.0, 0.45, 0.70, 0.90, 1.0],
+        stops: const [0.0, 0.35, 0.60, 0.80, 0.94, 1.0],
       ).createShader(Rect.fromCircle(center: center, radius: pupilRadius));
     canvas.drawCircle(center, pupilRadius, retinaGlowPaint);
 
     // 5. Advanced Shader-Based Fundus Reflex Dynamics
     if (reflexMotion == "neutral") {
       // 🌟 FULL PUPILLARY CAVITY NEUTRALITY FLASH (100% Aperture Fill)
-      final double peakLuminance = (reflectionOpacity * illuminance * fundusLuminanceMultiplier).clamp(0.0, 1.0);
+      final double peakLuminance = (reflectionOpacity * illuminance * fundusLuminanceMultiplier * 1.25).clamp(0.30, 1.0);
       final neutralFlashPaint = Paint()
         ..shader = RadialGradient(
           colors: [
             const Color(0xFFFFFFFF).withValues(alpha: peakLuminance), // Incandescent white-hot center
             const Color(0xFFFFF59D).withValues(alpha: peakLuminance),
-            const Color(0xFFFFD54F).withValues(alpha: (peakLuminance * 0.95).clamp(0.0, 1.0)),
-            const Color(0xFFFF9800).withValues(alpha: (peakLuminance * 0.85).clamp(0.0, 1.0)),
-            const Color(0xFFE64A19).withValues(alpha: (peakLuminance * 0.65).clamp(0.0, 1.0)),
+            const Color(0xFFFFD54F).withValues(alpha: (peakLuminance * 0.96).clamp(0.0, 1.0)),
+            const Color(0xFFFF9800).withValues(alpha: (peakLuminance * 0.88).clamp(0.0, 1.0)),
+            const Color(0xFFE64A19).withValues(alpha: (peakLuminance * 0.68).clamp(0.0, 1.0)),
             const Color(0xFFC62828).withValues(alpha: (peakLuminance * 0.35).clamp(0.0, 1.0)),
           ],
-          stops: const [0.0, 0.25, 0.50, 0.70, 0.88, 1.0],
+          stops: const [0.0, 0.22, 0.45, 0.68, 0.88, 1.0],
         ).createShader(Rect.fromCircle(center: center, radius: pupilRadius));
       canvas.drawCircle(center, pupilRadius, neutralFlashPaint);
     } else {
@@ -281,24 +282,24 @@ class EyePainter extends CustomPainter {
         center.dy + reflexOffset * math.sin(sweepAngleRad),
       );
 
-      final double peakOpacity = (reflectionOpacity * illuminance).clamp(0.0, 1.0);
-      double rWidth = reflexWidth.abs().clamp(4.0, pupilRadius * 2.8);
+      final double peakOpacity = (reflectionOpacity * illuminance * fundusLuminanceMultiplier * 1.35).clamp(0.20, 1.0);
+      double rWidth = reflexWidth.abs().clamp(5.0, pupilRadius * 2.8);
 
-      // Multi-Stop Optical Gaussian Beam Profile Shader (Vivid Gold-Orange-White Filament)
+      // Multi-Stop Optical Gaussian Beam Profile Shader (Vivid Gold-Orange-White Filament with High Radiance)
       final reflexPaint = Paint()
         ..shader = LinearGradient(
           colors: [
             const Color(0xFFC62828).withValues(alpha: 0.0),
-            const Color(0xFFE64A19).withValues(alpha: (peakOpacity * 0.40).clamp(0.0, 1.0)),
-            const Color(0xFFFF9800).withValues(alpha: (peakOpacity * 0.85).clamp(0.0, 1.0)),
-            const Color(0xFFFFF9C4).withValues(alpha: peakOpacity),
+            const Color(0xFFE64A19).withValues(alpha: (peakOpacity * 0.45).clamp(0.0, 1.0)),
+            const Color(0xFFFF6D00).withValues(alpha: (peakOpacity * 0.80).clamp(0.0, 1.0)),
+            const Color(0xFFFFD54F).withValues(alpha: (peakOpacity * 0.96).clamp(0.0, 1.0)),
             const Color(0xFFFFFFFF).withValues(alpha: peakOpacity), // Incandescent white filament core
-            const Color(0xFFFFF9C4).withValues(alpha: peakOpacity),
-            const Color(0xFFFF9800).withValues(alpha: (peakOpacity * 0.85).clamp(0.0, 1.0)),
-            const Color(0xFFE64A19).withValues(alpha: (peakOpacity * 0.40).clamp(0.0, 1.0)),
+            const Color(0xFFFFD54F).withValues(alpha: (peakOpacity * 0.96).clamp(0.0, 1.0)),
+            const Color(0xFFFF6D00).withValues(alpha: (peakOpacity * 0.80).clamp(0.0, 1.0)),
+            const Color(0xFFE64A19).withValues(alpha: (peakOpacity * 0.45).clamp(0.0, 1.0)),
             const Color(0xFFC62828).withValues(alpha: 0.0),
           ],
-          stops: const [0.0, 0.12, 0.30, 0.45, 0.50, 0.55, 0.70, 0.88, 1.0],
+          stops: const [0.0, 0.10, 0.26, 0.42, 0.50, 0.58, 0.74, 0.90, 1.0],
         ).createShader(Rect.fromCenter(center: Offset.zero, width: rWidth, height: pupilRadius * 3.5));
 
       if (scissorsMotionActive) {

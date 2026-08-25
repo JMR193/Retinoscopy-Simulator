@@ -276,14 +276,15 @@ class _OpticalCalculatorScreenState extends State<OpticalCalculatorScreen> {
   }
 
   Widget _buildResultRow(String label, String value, Color color) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.black87)),
+        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: colorScheme.onSurface)),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
+            color: color.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: color.withValues(alpha: 0.4)),
           ),

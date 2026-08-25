@@ -79,13 +79,13 @@ class AAOTrialLensOverlay extends StatelessWidget {
                   ),
                 ),
                 alignment: Alignment.center,
-                padding: const EdgeInsets.only(right: 6),
+                padding: const EdgeInsets.only(right: 4),
                 child: Text(
                   sphereText,
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
-                    fontSize: size * 0.050,
+                    fontSize: (size * 0.052).clamp(10.0, 16.0),
                     letterSpacing: -0.2,
                     shadows: const [
                       Shadow(color: Colors.black87, blurRadius: 3, offset: Offset(1, 1)),
@@ -124,13 +124,13 @@ class AAOTrialLensOverlay extends StatelessWidget {
                   ),
                 ),
                 alignment: Alignment.center,
-                padding: const EdgeInsets.only(left: 6),
+                padding: const EdgeInsets.only(left: 4),
                 child: Text(
                   cylText,
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
-                    fontSize: size * 0.050,
+                    fontSize: (size * 0.052).clamp(10.0, 16.0),
                     letterSpacing: -0.2,
                     shadows: const [
                       Shadow(color: Colors.black87, blurRadius: 3, offset: Offset(1, 1)),
