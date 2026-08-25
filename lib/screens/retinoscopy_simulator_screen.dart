@@ -225,28 +225,20 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.tune_outlined),
-            tooltip: 'Optical Physics & Calibration',
-            onPressed: () => _showOpticalPhysicsCalibrationDialog(context),
+            icon: const Icon(Icons.lightbulb_outline),
+            tooltip: 'Feature Tour & Guide',
+            onPressed: () => _showFeatureTourDialog(context),
           ),
           IconButton(
             icon: const Icon(Icons.casino_outlined),
             tooltip: 'Clinical Case Generator',
             onPressed: () => _showRandomCaseDialog(context),
           ),
-          IconButton(
-            icon: const Icon(Icons.lightbulb_outline),
-            tooltip: 'Feature Tour & Guide',
-            onPressed: () => _showFeatureTourDialog(context),
-          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             tooltip: 'Clinical Tools & Menu',
             onSelected: (value) {
               switch (value) {
-                case 'calibration':
-                  _showOpticalPhysicsCalibrationDialog(context);
-                  break;
                 case 'reset':
                   _state.resetAll();
                   setState(() {
@@ -274,16 +266,6 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
               }
             },
             itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'calibration',
-                child: Row(
-                  children: [
-                    const Icon(Icons.tune, color: Colors.orange, size: 18),
-                    const SizedBox(width: 10),
-                    const Text('Optical Physics Calibration'),
-                  ],
-                ),
-              ),
               PopupMenuItem(
                 value: 'reset',
                 child: Row(
@@ -780,11 +762,62 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
     final colorScheme = theme.colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      padding: const EdgeInsets.symmetric(vertical: 5.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: colorScheme.onSurfaceVariant)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: colorScheme.onSurfaceVariant)),
+              if (isDiopter && value != 0.0) ...[
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        AudioService.playTick();
+                        double newValue = (-value).clamp(min, max);
+                        onChanged(newValue);
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: (value > 0 ? Colors.green : Colors.red).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: (value > 0 ? Colors.green : Colors.red).withValues(alpha: 0.4)),
+                        ),
+                        child: Text(
+                          'Flip ± Sign',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: value > 0 ? Colors.green : Colors.red),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: () {
+                        AudioService.playTick();
+                        onChanged(0.0);
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Plano',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
           const SizedBox(height: 4),
           Row(
             children: [
@@ -960,27 +993,32 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                                     child: Transform.rotate(
                                       angle: (_state.streakAngle - 90) * math.pi / 180,
                                       child: Container(
-                                        width: (size * 0.22).clamp(50.0, 85.0),
-                                        height: size * 2.5,
+                                        width: 16,
+                                        height: size * 2.2,
                                         decoration: BoxDecoration(
                                           boxShadow: [
                                             BoxShadow(
-                                              color: const Color(0xFFFFD54F).withValues(alpha: 0.25),
-                                              blurRadius: 16,
-                                              spreadRadius: 4,
+                                              color: const Color(0xFFFFD54F).withValues(alpha: 0.45),
+                                              blurRadius: 14,
+                                              spreadRadius: 3,
+                                            ),
+                                            BoxShadow(
+                                              color: const Color(0xFFFFF9C4).withValues(alpha: 0.85),
+                                              blurRadius: 6,
+                                              spreadRadius: 1,
                                             ),
                                           ],
                                           gradient: const LinearGradient(
                                             colors: [
-                                              Color(0x00FFE082),
-                                              Color(0x24FFE082),
-                                              Color(0x44FFF59D),
-                                              Color(0x68FFFFFF), // Soft luminous streak core
-                                              Color(0x44FFF59D),
-                                              Color(0x24FFE082),
-                                              Color(0x00FFE082),
+                                              Color(0x00FFF176),
+                                              Color(0x66FFE082),
+                                              Color(0xDDFFF59D),
+                                              Color(0xFFFFFFFF), // White-hot filament center
+                                              Color(0xDDFFF59D),
+                                              Color(0x66FFE082),
+                                              Color(0x00FFF176),
                                             ],
-                                            stops: [0.0, 0.18, 0.38, 0.50, 0.62, 0.82, 1.0],
+                                            stops: [0.0, 0.20, 0.38, 0.50, 0.62, 0.80, 1.0],
                                           ),
                                         ),
                                       ),
@@ -2136,22 +2174,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                           _state.customFundusLuminance = val;
                         },
                       ),
-                      const SizedBox(height: 10),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.tune, size: 16),
-                        label: const Text('Open Full Calibration Bench', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange.shade800,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(double.infinity, 38),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          _showOpticalPhysicsCalibrationDialog(context);
-                        },
-                      ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       OutlinedButton.icon(
                         icon: const Icon(Icons.restart_alt, size: 16),
                         label: const Text('Reset Optical Physics to Default', style: TextStyle(fontSize: 12)),
@@ -2681,247 +2704,6 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                   ],
                 ),
               ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  /// Interactive Optical Physics & Biometry Calibration Dialog
-  void _showOpticalPhysicsCalibrationDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final theme = Theme.of(context);
-            final isDark = theme.brightness == Brightness.dark;
-            final primaryColor = theme.colorScheme.primary;
-
-            final double wd = _state.workingDistance;
-            final double wdCm = wd > 0.01 ? (100.0 / wd) : 67.0;
-            final double ps = _state.patientSphere;
-            final double pc = _state.patientCylinder;
-            final double ts = _state.plusLensesSelected ? _state.plusSphere : _state.minusSphere;
-            final double tc = _state.plusLensesSelected ? _state.plusCylinder : _state.minusCylinder;
-            final double netTs = ts - wd;
-            final double netRefractionError = ps - netTs;
-
-            // Copeland Optical Metrics
-            final String reflexMotionType = _state.reflexMotion.toUpperCase();
-            final String farPointConjugate = netRefractionError.abs() < 0.12
-                ? 'At Peep Hole (Conjugate Flash)'
-                : netRefractionError > 0
-                    ? 'Behind Patient (+${(100 / netRefractionError).abs().toStringAsFixed(1)} cm)'
-                    : 'Between Eye & Retinoscope (-${(100 / netRefractionError).abs().toStringAsFixed(1)} cm)';
-
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              titlePadding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.tune, color: Colors.orange, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Optical Physics Calibration', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                        Text('Schematic Eye Biometry & Vergence Bench', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: 480,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // 1. Gullstrand Schematic Biometry Card
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF0F172A) : const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.biotech, color: Colors.blueAccent, size: 16),
-                                SizedBox(width: 6),
-                                Text('Gullstrand Eye Biometry & Conjugate Plane', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blueAccent)),
-                              ],
-                            ),
-                            const Divider(height: 12),
-                            Text('• Corneal Refractive Power: 43.00 D (r = 7.7 mm)', style: TextStyle(fontSize: 11.5, color: isDark ? Colors.white70 : Colors.black87)),
-                            Text('• Standard Axial Length: 24.00 mm (Total Power ~60.00 D)', style: TextStyle(fontSize: 11.5, color: isDark ? Colors.white70 : Colors.black87)),
-                            Text('• Working Distance Vergence: +${wd.toStringAsFixed(2)} D (${wdCm.toStringAsFixed(0)} cm)', style: TextStyle(fontSize: 11.5, color: isDark ? Colors.white70 : Colors.black87)),
-                            Text('• Net Conjugate Far Point: $farPointConjugate', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.orange)),
-                            Text('• Apparent Reflex Motion: $reflexMotionType MOTION', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: reflexMotionType == 'NEUTRAL' ? Colors.green : Colors.cyan)),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // 2. Working Distance Calibration
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Working Distance Offset', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-                          Text('+${_state.workingDistance.toStringAsFixed(2)} D (${wdCm.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.deepOrange)),
-                        ],
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          ChoiceChip(
-                            label: const Text('50 cm (+2.00 D)', style: TextStyle(fontSize: 11)),
-                            selected: (_state.workingDistance - 2.00).abs() < 0.05,
-                            onSelected: (_) {
-                              setModalState(() => _state.setWorkingDistancePreset(50));
-                              setState(() {});
-                            },
-                          ),
-                          ChoiceChip(
-                            label: const Text('67 cm (+1.50 D)', style: TextStyle(fontSize: 11)),
-                            selected: (_state.workingDistance - 1.50).abs() < 0.05,
-                            onSelected: (_) {
-                              setModalState(() => _state.setWorkingDistancePreset(67));
-                              setState(() {});
-                            },
-                          ),
-                          ChoiceChip(
-                            label: const Text('100 cm (+1.00 D)', style: TextStyle(fontSize: 11)),
-                            selected: (_state.workingDistance - 1.00).abs() < 0.05,
-                            onSelected: (_) {
-                              setModalState(() => _state.setWorkingDistancePreset(100));
-                              setState(() {});
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-
-                      // 3. Pupil Aperture Size Calibration
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Pupil Aperture Diameter', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-                          Text('${(_state.customPupilAperture * 10).toStringAsFixed(1)} mm', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
-                        ],
-                      ),
-                      Slider(
-                        value: _state.customPupilAperture,
-                        min: 0.25,
-                        max: 0.85,
-                        divisions: 12,
-                        activeColor: primaryColor,
-                        onChanged: (val) {
-                          setModalState(() => _state.customPupilAperture = val);
-                          setState(() {});
-                        },
-                      ),
-
-                      // 4. Fundus Retro-Illumination Luminance Multiplier
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Fundus Radiance & Glow', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-                          Text('${(_state.customFundusLuminance * 100).round()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange)),
-                        ],
-                      ),
-                      Slider(
-                        value: _state.customFundusLuminance,
-                        min: 0.50,
-                        max: 2.00,
-                        divisions: 15,
-                        activeColor: Colors.orange,
-                        onChanged: (val) {
-                          setModalState(() => _state.customFundusLuminance = val);
-                          setState(() {});
-                        },
-                      ),
-
-                      // 5. Retinoscope Sleeve Position
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Retinoscope Sleeve Collimator', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-                          Text(_state.sleeveIsPlaneMirror ? 'Plane Mirror (Down)' : 'Concave Mirror (Up)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: _state.sleeveIsPlaneMirror ? Colors.teal : Colors.deepPurple)),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      SegmentedButton<bool>(
-                        segments: const [
-                          ButtonSegment<bool>(value: true, label: Text('Plane (Divergent)', style: TextStyle(fontSize: 11.5)), icon: Icon(Icons.arrow_downward, size: 14)),
-                          ButtonSegment<bool>(value: false, label: Text('Concave (Convergent)', style: TextStyle(fontSize: 11.5)), icon: Icon(Icons.arrow_upward, size: 14)),
-                        ],
-                        selected: {_state.sleeveIsPlaneMirror},
-                        onSelectionChanged: (Set<bool> sel) {
-                          setModalState(() => _state.sleeveIsPlaneMirror = sel.first);
-                          setState(() {});
-                        },
-                      ),
-                      const SizedBox(height: 12),
-
-                      // 6. Aberration Toggles
-                      SwitchListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Mydriasis (Dilated Pupil)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-                        value: _state.pupilDilated,
-                        activeTrackColor: primaryColor, activeThumbColor: primaryColor,
-                        onChanged: (val) {
-                          setModalState(() => _state.pupilDilated = val);
-                          setState(() {});
-                        },
-                      ),
-                      SwitchListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Scissors Aberration Motion', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-                        subtitle: const Text('Simulates keratoconus dual-blade shear', style: TextStyle(fontSize: 10.5)),
-                        value: _state.scissorsMotionActive,
-                        activeTrackColor: primaryColor, activeThumbColor: primaryColor,
-                        onChanged: (val) {
-                          setModalState(() => _state.scissorsMotionActive = val);
-                          setState(() {});
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton.icon(
-                  icon: const Icon(Icons.restart_alt, size: 16),
-                  label: const Text('Restore Physiological Defaults', style: TextStyle(fontSize: 12)),
-                  onPressed: () {
-                    setModalState(() => _state.resetOpticalPhysicsToDefault());
-                    setState(() {});
-                    AudioService.playTick();
-                  },
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Apply Calibration'),
-                ),
-              ],
             );
           },
         );

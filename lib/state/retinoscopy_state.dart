@@ -504,12 +504,6 @@ class RetinoscopyState extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool get sleeveIsPlaneMirror => !_sleeveUp;
-  set sleeveIsPlaneMirror(bool value) {
-    _sleeveUp = !value;
-    notifyListeners();
-  }
-
   // --- Draggable Beam Offset ---
   double _beamPosition = 0.0; // Current displacement along the sweep axis (-100 to 100)
   double get beamPosition => _beamPosition;
@@ -705,34 +699,33 @@ class RetinoscopyState extends ChangeNotifier {
     }
   }
 
-  // Retina Opacity based on distance to neutrality
+  // Retina Opacity based on distance to neutrality (Rich incandescent fundus glow)
   double get retinaOpacity {
     double rw = reflexWidth / 30.0; // unmultiplied
-    double widthZeroOpacity = 6.0;
-    double maxOpacity = 0.75;
-    double correctedOpacity = 0.8;
+    double widthZeroOpacity = 10.0;
+    double maxOpacity = 0.92;
+    double minOpacity = 0.42; // Solid base visibility even in high refractive error
 
-    double opacity = maxOpacity - rw.abs() / widthZeroOpacity * maxOpacity;
+    double opacity = maxOpacity - (rw.abs() / widthZeroOpacity) * (maxOpacity - minOpacity);
+    opacity = opacity.clamp(minOpacity, maxOpacity);
     if (rw == 0.0) {
-      opacity = correctedOpacity;
+      opacity = 0.98;
     }
-    double dimming = (1.0 - (_cataractDensity * 0.75)) * (1.0 - (_cornealOpacity * 0.6));
-    return (opacity * dimming).clamp(0.0, 1.0);
+    double dimming = (1.0 - (_cataractDensity * 0.60)) * (1.0 - (_cornealOpacity * 0.50));
+    return (opacity * dimming).clamp(0.20, 1.0);
   }
 
-  // Streak Reflection Opacity
+  // Streak Reflection Opacity (Crystal-clear, high-radiance slit reflex)
   double get reflectionOpacity {
     double rw = (reflexWidth / 30.0).abs();
-    double widthZeroOpacityStreak = 20.0;
-    double widthFullOpacityStreak = 1.0;
-    double correctedOpacityStreak = 1.0;
+    double widthZeroOpacityStreak = 24.0;
+    double minStreakOpacity = 0.48; // Keeps slit reflex vividly distinct from background
 
-    double streakOpacity = 1.0;
-    if (rw > widthFullOpacityStreak) {
-      streakOpacity = correctedOpacityStreak - rw / (widthZeroOpacityStreak - widthFullOpacityStreak);
-    }
-    double dimming = (1.0 - (_cataractDensity * 0.75)) * (1.0 - (_cornealOpacity * 0.6));
-    return (streakOpacity * dimming).clamp(0.0, 1.0);
+    double streakOpacity = 1.0 - (rw / widthZeroOpacityStreak) * (1.0 - minStreakOpacity);
+    streakOpacity = streakOpacity.clamp(minStreakOpacity, 1.0);
+
+    double dimming = (1.0 - (_cataractDensity * 0.60)) * (1.0 - (_cornealOpacity * 0.50));
+    return (streakOpacity * dimming).clamp(0.30, 1.0);
   }
 
   // --- Advanced Optical Vergence & Physics Calculations ---

@@ -163,108 +163,60 @@ class EyePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final maxRadius = math.min(size.width, size.height) / 2;
 
-    // 1. Draw Facial Skin Background & Anatomical Eyelid Creases
-    final skinPaint = Paint()
-      ..shader = LinearGradient(
-        colors: const [
-          Color(0xFF7A4A32),
-          Color(0xFF683D27),
-          Color(0xFF5A3320),
-        ],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), const Radius.circular(16)),
-      skinPaint,
-    );
-
-    // Eyelid Upper Crease (Superior Palpebral Sulcus)
-    final creasePaint = Paint()
-      ..color = const Color(0xFF452212).withValues(alpha: 0.45)
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke;
-    final creasePath = Path();
-    creasePath.moveTo(size.width * 0.12, size.height * 0.22);
-    creasePath.quadraticBezierTo(size.width * 0.50, size.height * 0.12, size.width * 0.88, size.height * 0.24);
-    canvas.drawPath(creasePath, creasePaint);
-
-    // 2. Draw Palpebral Fissure (Almond-shaped eye opening)
-    final palpebralPath = Path();
-    palpebralPath.moveTo(size.width * 0.10, center.dy);
-    // Upper eyelid arc
-    palpebralPath.quadraticBezierTo(size.width * 0.50, center.dy - maxRadius * 0.92, size.width * 0.90, center.dy);
-    // Lower eyelid arc
-    palpebralPath.quadraticBezierTo(size.width * 0.50, center.dy + maxRadius * 0.82, size.width * 0.10, center.dy);
-    palpebralPath.close();
-
-    canvas.save();
-    canvas.clipPath(palpebralPath);
-
-    // Draw Sclera within palpebral fissure
+    // 1. Draw Sclera (White of the eye with realistic spherical shading & subtle capillaries)
     final scleraPaint = Paint()
       ..shader = RadialGradient(
         colors: const [
           Color(0xFFFCFDFD),
           Color(0xFFEBEFF2),
           Color(0xFFCBD5E1),
-          Color(0xFF94A3B8),
         ],
-        stops: const [0.55, 0.78, 0.92, 1.0],
-      ).createShader(Rect.fromCircle(center: center, radius: maxRadius * 1.1));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), scleraPaint);
+        stops: const [0.65, 0.88, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: maxRadius));
+    canvas.drawCircle(center, maxRadius, scleraPaint);
 
-    // Medial & lateral canthus pink tissue
-    final canthusPaint = Paint()
-      ..color = const Color(0xFFE57373).withValues(alpha: 0.45);
-    canvas.drawCircle(Offset(size.width * 0.12, center.dy), maxRadius * 0.22, canthusPaint);
-    canvas.drawCircle(Offset(size.width * 0.88, center.dy), maxRadius * 0.20, canthusPaint);
-
-    // Subtle scleral capillaries
     final capillaryPaint = Paint()
-      ..color = const Color(0xFFEF5350).withValues(alpha: 0.25)
+      ..color = const Color(0xFFEF9A9A).withValues(alpha: 0.28)
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
-    for (int i = 0; i < 8; i++) {
-      double a = (i * 45.0 + 15) * math.pi / 180;
+
+    for (int i = 0; i < 6; i++) {
+      double a = (i * 60.0 + 20) * math.pi / 180;
       canvas.drawLine(
-        Offset(center.dx + maxRadius * 0.70 * math.cos(a), center.dy + maxRadius * 0.70 * math.sin(a)),
-        Offset(center.dx + maxRadius * 0.98 * math.cos(a + 0.08), center.dy + maxRadius * 0.98 * math.sin(a + 0.08)),
+        Offset(center.dx + maxRadius * 0.72 * math.cos(a), center.dy + maxRadius * 0.72 * math.sin(a)),
+        Offset(center.dx + maxRadius * 0.96 * math.cos(a + 0.1), center.dy + maxRadius * 0.96 * math.sin(a + 0.1)),
         capillaryPaint,
       );
     }
 
-    // 3. Draw Iris (Detailed Olive/Hazel stroma matching reference image)
-    final irisRadius = maxRadius * 0.68;
+    // 2. Draw Iris (Detailed crypts, collarette & radial trabecular fibers)
+    final irisRadius = maxRadius * 0.65;
     final irisPaint = Paint()
       ..shader = RadialGradient(
         colors: const [
-          Color(0xFF2C4318), // Rich olive-hazel stroma
-          Color(0xFF426320),
-          Color(0xFF557C2A),
-          Color(0xFF334E1A),
-          Color(0xFF16250B), // Limbal ring shadow
+          Color(0xFF1E3A8A),
+          Color(0xFF1E40AF),
+          Color(0xFF0F172A), // Limbal ring shadow
         ],
-        stops: const [0.0, 0.35, 0.70, 0.88, 1.0],
+        stops: const [0.0, 0.85, 1.0],
       ).createShader(Rect.fromCircle(center: center, radius: irisRadius));
     canvas.drawCircle(center, irisRadius, irisPaint);
 
-    // Radiating iris stroma micro-fibers (72 dense fibers)
     final fiberPaint = Paint()
-      ..color = const Color(0xFFA3E635).withValues(alpha: 0.24)
-      ..strokeWidth = 1.1
+      ..color = const Color(0xFF93C5FD).withValues(alpha: 0.16)
+      ..strokeWidth = 1.2
       ..style = PaintingStyle.stroke;
 
-    for (int i = 0; i < 72; i++) {
-      double rad = (i * 5.0) * math.pi / 180;
+    for (int i = 0; i < 36; i++) {
+      double rad = (i * 10) * math.pi / 180;
       canvas.drawLine(
-        Offset(center.dx + irisRadius * 0.38 * math.cos(rad), center.dy + irisRadius * 0.38 * math.sin(rad)),
-        Offset(center.dx + irisRadius * 0.96 * math.cos(rad), center.dy + irisRadius * 0.96 * math.sin(rad)),
+        Offset(center.dx + irisRadius * 0.42 * math.cos(rad), center.dy + irisRadius * 0.42 * math.sin(rad)),
+        Offset(center.dx + irisRadius * 0.95 * math.cos(rad), center.dy + irisRadius * 0.95 * math.sin(rad)),
         fiberPaint,
       );
     }
 
-    // 4. Draw Pupil (Black aperture) with physiological light reflex constriction
+    // 3. Draw Pupil (Black aperture) with physiological light reflex constriction
     final double pupilRadius;
     if (pupilDilated) {
       pupilRadius = irisRadius * (pupilApertureRatio * 1.55).clamp(0.75, 0.94);
@@ -282,25 +234,26 @@ class EyePainter extends CustomPainter {
     final pupilPath = Path()..addOval(Rect.fromCircle(center: center, radius: pupilRadius));
     canvas.clipPath(pupilPath);
 
-    // 5. Draw Choroidal Backscatter Base Glow (Terracotta / Copper-Red Retro-Illumination)
-    // Matches the reference image's rich incandescent copper pupil fill
+    // 4. Draw Choroidal Backscatter Base Glow (Deep Red-Orange Retro-Illumination)
+    // Backscatter intensifies when the retinoscope beam aligns centrally over the pupil
     double beamProximity = (1.0 - (beamPosition.abs() / (pupilRadius * 1.6))).clamp(0.0, 1.0);
-    double dynamicChoroidGlow = (retinaOpacity * fundusLuminanceMultiplier * (0.95 + 0.40 * beamProximity)).clamp(0.20, 1.0);
+    double dynamicChoroidGlow = (retinaOpacity * fundusLuminanceMultiplier * (0.92 + 0.45 * beamProximity)).clamp(0.15, 1.0);
 
     final retinaGlowPaint = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFFD64B17).withValues(alpha: dynamicChoroidGlow), // Brilliant incandescent terracotta
-          const Color(0xFFC03A12).withValues(alpha: dynamicChoroidGlow * 0.98),
-          const Color(0xFFA8300E).withValues(alpha: dynamicChoroidGlow * 0.92),
-          const Color(0xFF802008).withValues(alpha: dynamicChoroidGlow * 0.70),
-          const Color(0xFF4A1004).withValues(alpha: dynamicChoroidGlow * 0.35),
+          const Color(0xFFFF5722).withValues(alpha: dynamicChoroidGlow), // Brilliant incandescent scarlet
+          const Color(0xFFE53935).withValues(alpha: dynamicChoroidGlow * 0.95),
+          const Color(0xFFC62828).withValues(alpha: dynamicChoroidGlow * 0.85),
+          const Color(0xFF880E4F).withValues(alpha: dynamicChoroidGlow * 0.55),
+          const Color(0xFF311B92).withValues(alpha: dynamicChoroidGlow * 0.20),
+          Colors.black,
         ],
-        stops: const [0.0, 0.40, 0.70, 0.90, 1.0],
+        stops: const [0.0, 0.35, 0.60, 0.80, 0.94, 1.0],
       ).createShader(Rect.fromCircle(center: center, radius: pupilRadius));
     canvas.drawCircle(center, pupilRadius, retinaGlowPaint);
 
-    // 6. Advanced Shader-Based Fundus Reflex Dynamics
+    // 5. Advanced Shader-Based Fundus Reflex Dynamics
     if (reflexMotion == "neutral") {
       // 🌟 FULL PUPILLARY CAVITY NEUTRALITY FLASH (100% Aperture Fill)
       final double peakLuminance = (reflectionOpacity * illuminance * fundusLuminanceMultiplier * 1.25).clamp(0.30, 1.0);
