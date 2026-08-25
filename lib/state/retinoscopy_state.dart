@@ -504,6 +504,12 @@ class RetinoscopyState extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool get sleeveIsPlaneMirror => !_sleeveUp;
+  set sleeveIsPlaneMirror(bool value) {
+    _sleeveUp = !value;
+    notifyListeners();
+  }
+
   // --- Draggable Beam Offset ---
   double _beamPosition = 0.0; // Current displacement along the sweep axis (-100 to 100)
   double get beamPosition => _beamPosition;
