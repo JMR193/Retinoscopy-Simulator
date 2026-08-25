@@ -28,11 +28,11 @@ class AAOTrialLensOverlay extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // Authentic Clinical Colors (Vibrant Olive Green for Plus, Crimson Red for Minus)
-    final Color baseColor = isPlusLens ? const Color(0xFF558B2F) : const Color(0xFFC62828);
-    final Color lightTone = isPlusLens ? const Color(0xFF689F38) : const Color(0xFFD32F2F);
-    final Color darkTone = isPlusLens ? const Color(0xFF33691E) : const Color(0xFF8E0000);
-    final Color highlightTone = isPlusLens ? const Color(0xFF8BC34A) : const Color(0xFFEF5350);
+    // Authentic Clinical Colors (Vibrant Lime-Olive Green for Plus, Crimson Red for Minus)
+    final Color baseColor = isPlusLens ? const Color(0xFF5EAA20) : const Color(0xFFC62828);
+    final Color lightTone = isPlusLens ? const Color(0xFF72C728) : const Color(0xFFD32F2F);
+    final Color darkTone = isPlusLens ? const Color(0xFF3E7514) : const Color(0xFF8E0000);
+    final Color highlightTone = isPlusLens ? const Color(0xFF8DE03C) : const Color(0xFFEF5350);
 
     final String sphereText = '${sphere > 0 ? '+' : ''}${sphere.toStringAsFixed(2)}';
     final String cylText = '${cylinder > 0 ? '+' : ''}${cylinder.toStringAsFixed(2)}';
@@ -199,23 +199,22 @@ class AAOTrialLensOverlay extends StatelessWidget {
                   ),
 
                   // Bottom Axis Degree Badge (e.g. '90°', '180°')
-                  if (cylinder != 0.0)
-                    Positioned(
-                      bottom: ringThickness * 0.08,
-                      child: Text(
-                        axisText,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: size * 0.052,
-                          letterSpacing: 0.2,
-                          shadows: const [
-                            Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1)),
-                            Shadow(color: Colors.black54, blurRadius: 2, offset: Offset(1, 2)),
-                          ],
-                        ),
+                  Positioned(
+                    bottom: ringThickness * 0.08,
+                    child: Text(
+                      axisText,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: (size * 0.054).clamp(11.0, 18.0),
+                        letterSpacing: 0.2,
+                        shadows: const [
+                          Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1)),
+                          Shadow(color: Colors.black54, blurRadius: 2, offset: Offset(1, 2)),
+                        ],
                       ),
                     ),
+                  ),
                 ],
               ),
             ),

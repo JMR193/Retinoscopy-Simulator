@@ -942,32 +942,27 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                                     child: Transform.rotate(
                                       angle: (_state.streakAngle - 90) * math.pi / 180,
                                       child: Container(
-                                        width: 16,
-                                        height: size * 2.2,
+                                        width: (size * 0.22).clamp(50.0, 85.0),
+                                        height: size * 2.5,
                                         decoration: BoxDecoration(
                                           boxShadow: [
                                             BoxShadow(
-                                              color: const Color(0xFFFFD54F).withValues(alpha: 0.45),
-                                              blurRadius: 14,
-                                              spreadRadius: 3,
-                                            ),
-                                            BoxShadow(
-                                              color: const Color(0xFFFFF9C4).withValues(alpha: 0.85),
-                                              blurRadius: 6,
-                                              spreadRadius: 1,
+                                              color: const Color(0xFFFFD54F).withValues(alpha: 0.25),
+                                              blurRadius: 16,
+                                              spreadRadius: 4,
                                             ),
                                           ],
                                           gradient: const LinearGradient(
                                             colors: [
-                                              Color(0x00FFF176),
-                                              Color(0x66FFE082),
-                                              Color(0xDDFFF59D),
-                                              Color(0xFFFFFFFF), // White-hot filament center
-                                              Color(0xDDFFF59D),
-                                              Color(0x66FFE082),
-                                              Color(0x00FFF176),
+                                              Color(0x00FFE082),
+                                              Color(0x24FFE082),
+                                              Color(0x44FFF59D),
+                                              Color(0x68FFFFFF), // Soft luminous streak core
+                                              Color(0x44FFF59D),
+                                              Color(0x24FFE082),
+                                              Color(0x00FFE082),
                                             ],
-                                            stops: [0.0, 0.20, 0.38, 0.50, 0.62, 0.80, 1.0],
+                                            stops: [0.0, 0.18, 0.38, 0.50, 0.62, 0.82, 1.0],
                                           ),
                                         ),
                                       ),
