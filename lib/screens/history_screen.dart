@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/storage_service.dart';
+import '../widgets/social_share_modal.dart';
 
 /// Test History Screen — JMR Technologies Retinoscopy Simulator
 class HistoryScreen extends StatefulWidget {
@@ -69,12 +70,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final total = StorageService.getTotalTests();
     final correct = StorageService.getTotalCorrect();
     final accuracy = StorageService.getAccuracyPercent();
+    final String candidateName = StorageService.getUserName();
+    final String displayName = candidateName.isEmpty ? 'Clinical Optometrist' : candidateName;
 
     final buffer = StringBuffer();
-    buffer.writeln('Retinoscopy Simulator — JMR Technologies');
-    buffer.writeln('Test History Report');
-    buffer.writeln('Total: $total | Correct: $correct | Accuracy: ${accuracy.toStringAsFixed(1)}%');
-    buffer.writeln('─' * 40);
+    buffer.writeln('📊 Retinoscopy Simulator — JMR Technologies');
+    buffer.writeln('Clinical Test History & Competency Summary');
+    buffer.writeln('Practitioner: $displayName');
+    buffer.writeln('Total Assessments: $total | Correct: $correct | Overall Accuracy: ${accuracy.toStringAsFixed(1)}%');
+    buffer.writeln('─' * 36);
 
     for (final entry in _history.take(20)) {
       final ts = _formatTimestamp(entry['timestamp'] as String? ?? '');
@@ -86,19 +90,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
       final result = (entry['correct'] as bool) ? '✓' : '✗';
       buffer.writeln('$ts | $result | $rx');
     }
+    buffer.writeln('');
+    buffer.writeln('Master retinoscopy skills with Retinoscopy Simulator Pro! #Optometry');
 
-    await Clipboard.setData(ClipboardData(text: buffer.toString()));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('History copied to clipboard!')),
-      );
-    }
+    SocialShareModal.show(
+      context: context,
+      title: 'Share Clinical History',
+      subtitle: '$total Cases • ${accuracy.toStringAsFixed(1)}% Accuracy',
+      shareText: buffer.toString(),
+      type: ShareType.testHistory,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final totalTests = StorageService.getTotalTests();
     final totalCorrect = StorageService.getTotalCorrect();
     final accuracy = StorageService.getAccuracyPercent();
@@ -107,10 +115,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text('Test History'),
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign Out',
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+            },
+          ),
           if (_history.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.copy_outlined),
@@ -183,7 +196,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           child: LinearProgressIndicator(
                             value: accuracy / 100.0,
                             minHeight: 10,
-                            backgroundColor: Colors.grey[200],
+                            backgroundColor: isDark ? const Color(0xFF2C2C2E) : Colors.grey[200],
                             valueColor: AlwaysStoppedAnimation<Color>(
                               accuracy >= 80 ? Colors.green : accuracy >= 50 ? Colors.orange : Colors.red,
                             ),
@@ -202,16 +215,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.history, size: 64, color: Colors.grey[300]),
+                              Icon(Icons.history, size: 64, color: isDark ? Colors.white24 : Colors.grey[300]),
                               const SizedBox(height: 16),
                               Text(
                                 'No test history yet.',
-                                style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey[500]),
+                                style: theme.textTheme.titleMedium?.copyWith(color: isDark ? Colors.white70 : Colors.grey[500]),
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 'Switch to Test Mode and complete a case\nto see your results here.',
-                                style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[400]),
+                                style: theme.textTheme.bodySmall?.copyWith(color: isDark ? Colors.white38 : Colors.grey[400]),
                                 textAlign: TextAlign.center,
                               ),
                             ],
@@ -234,10 +247,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               elevation: 1,
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: correct ? Colors.green[50] : Colors.red[50],
+                                  backgroundColor: isDark
+                                      ? (correct ? Colors.green.withValues(alpha: 0.18) : Colors.red.withValues(alpha: 0.18))
+                                      : (correct ? Colors.green[50] : Colors.red[50]),
                                   child: Icon(
                                     correct ? Icons.check : Icons.close,
-                                    color: correct ? Colors.green[700] : Colors.red[700],
+                                    color: isDark
+                                        ? (correct ? Colors.greenAccent : Colors.redAccent)
+                                        : (correct ? Colors.green[700] : Colors.red[700]),
                                   ),
                                 ),
                                 title: Text(
@@ -246,12 +263,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 ),
                                 subtitle: Text(
                                   timestamp,
-                                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                                  style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : Colors.grey[500]),
                                 ),
                                 trailing: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: correct ? Colors.green[100] : Colors.red[100],
+                                    color: isDark
+                                        ? (correct ? Colors.green.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2))
+                                        : (correct ? Colors.green[100] : Colors.red[100]),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
@@ -259,7 +278,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
-                                      color: correct ? Colors.green[800] : Colors.red[800],
+                                      color: isDark
+                                          ? (correct ? Colors.greenAccent : Colors.redAccent)
+                                          : (correct ? Colors.green[800] : Colors.red[800]),
                                     ),
                                   ),
                                 ),

@@ -6,19 +6,26 @@ import '../state/retinoscopy_state.dart';
 import '../services/ai_engine.dart';
 import '../services/storage_service.dart';
 import '../services/audio_service.dart';
+import '../services/notification_service.dart';
 import '../widgets/realistic_eye.dart';
 import '../widgets/trial_lens_overlay.dart';
 import '../widgets/subjective_view.dart';
 import '../widgets/optical_ray_diagram.dart';
 import '../widgets/thibos_vector_plot.dart';
+import '../widgets/copeland_straddle_view.dart';
+import '../widgets/protocol_guided_banner.dart';
+import '../widgets/interactive_onboarding_overlay.dart';
+import '../widgets/score_card_generator.dart';
 import 'about_screen.dart';
 import 'patient_profiles_screen.dart';
+import 'store_screen.dart';
 import 'exam_screen.dart';
-import 'ar_mode_screen.dart';
 import 'optical_calculator_screen.dart';
 import 'ai_tutor_screen.dart';
-import 'history_screen.dart';
 import 'handbook_screen.dart';
+import 'leaderboard_screen.dart';
+import 'login_screen.dart';
+import '../services/cloud_sync_service.dart';
 
 class RetinoscopySimulatorScreen extends StatefulWidget {
   const RetinoscopySimulatorScreen({super.key});
@@ -29,6 +36,9 @@ class RetinoscopySimulatorScreen extends StatefulWidget {
 
 class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen> with TickerProviderStateMixin {
   late RetinoscopyState _state;
+
+  // Dark Room Mode
+  bool _isDarkRoomMode = false;
 
   // Auto-Sweep State
   bool _isAutoSweep = false;
@@ -70,7 +80,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
     // Check first-time user tour popup
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!StorageService.hasSeenSimulatorTour() && mounted) {
-        _showFeatureTourDialog(context);
+        InteractiveOnboardingOverlay.show(context);
       }
     });
   }
@@ -164,6 +174,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
 
     if (correct) {
       AudioService.playSuccess();
+      StorageService.addXp(150);
     } else {
       AudioService.playWrong();
     }
@@ -190,6 +201,18 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
 
   void _nextPatient() {
     _state.generateRandomPatient();
+    _clearUserInputs();
+  }
+
+  void _hardPatient() {
+    _state.generateHardPatient();
+    _clearUserInputs();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Hard Clinical Case Activated (Free Edition)')),
+    );
+  }
+
+  void _clearUserInputs() {
     _userSphere1Controller.clear();
     _userCylinder1Controller.clear();
     _userAxis1Controller.clear();
@@ -204,68 +227,140 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
 
   @override
   Widget build(BuildContext context) {
-    final Size screenSize = MediaQuery.of(context).size;
     final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-    final bool isWide = screenSize.width > 900 || isLandscape;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          children: [
-            const Text(
-              'Retinoscopy Simulator',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, letterSpacing: 0.3),
-            ),
-            Text(
-              _state.isExploreMode ? 'Explore & Neutralize' : 'Clinical Test Mode',
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w400, color: Colors.white70),
-            ),
-          ],
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.lightbulb_outline),
-            tooltip: 'Feature Tour & Guide',
-            onPressed: () => _showFeatureTourDialog(context),
-          ),
-          IconButton(
-            icon: const Icon(Icons.casino_outlined),
-            tooltip: 'Clinical Case Generator',
-            onPressed: () => _showRandomCaseDialog(context),
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            tooltip: 'Clinical Tools & Menu',
-            onSelected: (value) {
-              switch (value) {
-                case 'reset':
-                  _state.resetAll();
-                  setState(() {
-                    _showTestFeedback = false;
-                    _testResult = null;
+    return Theme(
+      data: _isDarkRoomMode ? ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: Colors.black,
+        appBarTheme: const AppBarTheme(backgroundColor: Colors.black, foregroundColor: Colors.white),
+      ) : Theme.of(context),
+      child: Scaffold(
+        appBar: AppBar(
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Retinoscopy Simulator',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 0.3),
+              ),
+              const SizedBox(height: 2),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreScreen())).then((_) {
+                    setState(() {});
                   });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Simulator reset to baseline Plano')),
-                  );
-                  break;
-                case 'tutorial':
-                  _state.showTutorial = !_state.showTutorial;
-                  break;
-                case 'protocol':
-                  _showInstructionsDialog(context);
-                  break;
-                case 'presets':
-                  _showAAOPresetsDialog(context);
-                  break;
-                case 'about':
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const AboutScreen()),
-                  );
-                  break;
-              }
-            },
-            itemBuilder: (context) => [
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _getEquippedStreakColor().withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _getEquippedStreakColor().withValues(alpha: 0.6), width: 0.8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.tune, size: 11, color: _getEquippedStreakColor()),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${_state.sleeveUp ? 'Concave Mirror' : 'Plane Mirror'} • ${StorageService.getEquippedCosmetic()}',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: (_isDarkRoomMode || Theme.of(context).brightness == Brightness.dark || _state.isDarkMode)
+                              ? Colors.white
+                              : Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: Icon(_isDarkRoomMode ? Icons.light_mode : Icons.dark_mode),
+              tooltip: 'Toggle Dark Room Mode',
+              onPressed: () {
+                setState(() {
+                  _isDarkRoomMode = !_isDarkRoomMode;
+                });
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.shuffle),
+              tooltip: 'Clinical Case Generator',
+              onPressed: () => _showRandomCaseDialog(context),
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              tooltip: 'Clinical Tools & Menu',
+              onSelected: (value) {
+                switch (value) {
+                  case 'optics':
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreScreen())).then((_) => setState(() {}));
+                    break;
+                  case 'calculator':
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const OpticalCalculatorScreen()));
+                    break;
+                  case 'share':
+                    ScoreCardGenerator.shareScoreCard(context);
+                    break;
+                  case 'onboarding':
+                    InteractiveOnboardingOverlay.show(context);
+                    break;
+                  case 'tour':
+                    _showFeatureTourDialog(context);
+                    break;
+                  case 'reset':
+                    _state.resetAll();
+                    setState(() {
+                      _showTestFeedback = false;
+                      _testResult = null;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Simulator reset to baseline Plano')),
+                    );
+                    break;
+                  case 'tutorial':
+                    _state.showTutorial = !_state.showTutorial;
+                    break;
+                  case 'protocol':
+                    _showInstructionsDialog(context);
+                    break;
+                  case 'presets':
+                    _showAAOPresetsDialog(context);
+                    break;
+                  case 'about':
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AboutScreen()),
+                    );
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'onboarding',
+                  child: Row(
+                    children: [
+                      Icon(Icons.school, color: Colors.blue.shade700, size: 18),
+                      const SizedBox(width: 10),
+                      const Text('Interactive Onboarding', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              PopupMenuItem(
+                value: 'tour',
+                child: const Row(
+                  children: [
+                    Icon(Icons.tour_outlined, color: Colors.amber, size: 18),
+                    SizedBox(width: 10),
+                    Text('Feature Tour & Guide'),
+                  ],
+                ),
+              ),
               PopupMenuItem(
                 value: 'reset',
                 child: Row(
@@ -280,7 +375,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 value: 'tutorial',
                 child: Row(
                   children: [
-                    Icon(_state.showTutorial ? Icons.school : Icons.school_outlined, color: Colors.indigo, size: 18),
+                    Icon(_state.showTutorial ? Icons.view_headline : Icons.view_headline_outlined, color: Colors.indigo, size: 18),
                     const SizedBox(width: 10),
                     Text(_state.showTutorial ? 'Hide Step Tutorial' : 'Step-by-Step Tutorial'),
                   ],
@@ -343,43 +438,89 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                               child: VerticalDivider(width: 2, thickness: 1, color: Colors.grey),
                             ),
                             const SizedBox(width: 12),
-                            FilterChip(
-                              label: const Text('Subjective Refraction', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                              selected: _state.subjectiveModeActive,
-                              selectedColor: Colors.purple[100],
-                              checkmarkColor: Colors.purple,
-                              onSelected: (val) {
-                                _state.subjectiveModeActive = val;
+                            Builder(
+                              builder: (context) {
+                                final bool isDark = _state.isDarkMode || Theme.of(context).brightness == Brightness.dark;
+                                return FilterChip(
+                                  label: Text(
+                                    'Subjective Refraction',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                      color: _state.subjectiveModeActive
+                                          ? (isDark ? Colors.purple.shade100 : Colors.purple.shade900)
+                                          : (isDark ? Colors.white70 : Colors.black87),
+                                    ),
+                                  ),
+                                  selected: _state.subjectiveModeActive,
+                                  selectedColor: isDark ? Colors.purple.shade900 : Colors.purple[100],
+                                  checkmarkColor: isDark ? Colors.purple.shade200 : Colors.purple,
+                                  backgroundColor: isDark ? const Color(0xFF1E293B) : null,
+                                  onSelected: (val) {
+                                    _state.subjectiveModeActive = val;
+                                  },
+                                );
                               },
                             ),
                           ],
                         ),
+                        if (_state.activeProtocol != ClinicalProtocolMode.none) ...[
+                          const SizedBox(height: 4),
+                          ProtocolGuidedBanner(
+                            state: _state,
+                            onDismiss: () => _state.setProtocol(ClinicalProtocolMode.none),
+                          ),
+                        ],
                         if (_state.showTutorial) ...[
                           const SizedBox(height: 6),
                           _buildTutorialBanner(),
                         ],
                         const SizedBox(height: 6),
-                        // 3-Column Single-Screen Dashboard in Landscape
+                        // Dedicated iPad/Tablet Split-View Dashboard
                         Expanded(
                           child: _state.subjectiveModeActive
                               ? Row(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
-                                    Expanded(flex: 3, child: SingleChildScrollView(physics: const BouncingScrollPhysics(), child: _buildLeftPanel())),
-                                    const SizedBox(width: 8),
-                                    Expanded(flex: 4, child: SingleChildScrollView(physics: const BouncingScrollPhysics(), child: _buildSubjectiveCenterPanel())),
-                                    const SizedBox(width: 8),
-                                    Expanded(flex: 3, child: SingleChildScrollView(physics: const BouncingScrollPhysics(), child: _buildSubjectiveRightPanel())),
+                                    // Massive Eye on Left (60%)
+                                    Expanded(flex: 6, child: _buildSubjectiveCenterPanel()),
+                                    const SizedBox(width: 12),
+                                    // Docked Controls on Right (40%)
+                                    Expanded(
+                                      flex: 4,
+                                      child: SingleChildScrollView(
+                                        physics: const BouncingScrollPhysics(),
+                                        child: Column(
+                                          children: [
+                                            _buildSubjectiveRightPanel(),
+                                            const SizedBox(height: 12),
+                                            _buildLeftPanel(),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                                   ],
                                 )
                               : Row(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
-                                    Expanded(flex: 3, child: SingleChildScrollView(physics: const BouncingScrollPhysics(), child: _buildLeftPanel())),
-                                    const SizedBox(width: 8),
-                                    Expanded(flex: 4, child: SingleChildScrollView(physics: const BouncingScrollPhysics(), child: _buildCenterPanel())),
-                                    const SizedBox(width: 8),
-                                    Expanded(flex: 3, child: SingleChildScrollView(physics: const BouncingScrollPhysics(), child: _buildRightPanel())),
+                                    // Massive Eye on Left (60%)
+                                    Expanded(flex: 6, child: _buildCenterPanel()),
+                                    const SizedBox(width: 12),
+                                    // Docked Controls on Right (40%)
+                                    Expanded(
+                                      flex: 4,
+                                      child: SingleChildScrollView(
+                                        physics: const BouncingScrollPhysics(),
+                                        child: Column(
+                                          children: [
+                                            _buildRightPanel(),
+                                            const SizedBox(height: 12),
+                                            _buildLeftPanel(),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                                   ],
                                 ),
                         ),
@@ -414,6 +555,13 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                             ),
                           ],
                         ),
+                        if (_state.activeProtocol != ClinicalProtocolMode.none) ...[
+                          const SizedBox(height: 8),
+                          ProtocolGuidedBanner(
+                            state: _state,
+                            onDismiss: () => _state.setProtocol(ClinicalProtocolMode.none),
+                          ),
+                        ],
                         if (_state.showTutorial) ...[
                           const SizedBox(height: 16),
                           _buildTutorialBanner(),
@@ -422,9 +570,9 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                         if (_state.subjectiveModeActive)
                           Column(
                             children: [
-                              _buildSubjectiveCenterPanel(),
-                              const SizedBox(height: 16),
                               _buildLeftPanel(),
+                              const SizedBox(height: 16),
+                              _buildSubjectiveCenterPanel(),
                               const SizedBox(height: 16),
                               _buildSubjectiveRightPanel(),
                             ],
@@ -432,9 +580,9 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                         else
                           Column(
                             children: [
-                              _buildCenterPanel(),
-                              const SizedBox(height: 16),
                               _buildLeftPanel(),
+                              const SizedBox(height: 16),
+                              _buildCenterPanel(),
                               const SizedBox(height: 16),
                               _buildRightPanel(),
                             ],
@@ -445,22 +593,24 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
           ),
         ],
       ),
+    ),
     );
   }
 
   Widget _buildModeTab(String label, bool exploreMode) {
     final active = _state.isExploreMode == exploreMode;
+    final bool isDark = _state.isDarkMode || Theme.of(context).brightness == Brightness.dark;
     return ChoiceChip(
       label: Text(
         label,
         style: TextStyle(
           fontWeight: FontWeight.bold,
-          color: active ? Colors.white : Colors.black87,
+          color: active ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
         ),
       ),
       selected: active,
       selectedColor: _getThemeColor(),
-      backgroundColor: Colors.grey[200],
+      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.grey[200],
       onSelected: (selected) {
         if (selected) {
           _state.isExploreMode = exploreMode;
@@ -480,12 +630,63 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Patient Refraction',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.person_pin, color: Colors.blue, size: 20),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      '1. Patient Refraction',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                if (_state.isExploreMode)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      _formatRx(_state.patientSphere, _state.patientCylinder, _state.patientAngle),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.blue),
+                    ),
+                  ),
+              ],
             ),
-            const Divider(),
+            const Divider(height: 18),
             if (_state.isExploreMode) ...[
+              // Quick Presets Row for fast clinical testing
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildPatientPresetChip('Plano', 0.0, 0.0, 90.0),
+                    const SizedBox(width: 6),
+                    _buildPatientPresetChip('Myopia -2.00', -2.00, 0.0, 90.0),
+                    const SizedBox(width: 6),
+                    _buildPatientPresetChip('Hyperopia +3.00', 3.00, 0.0, 90.0),
+                    const SizedBox(width: 6),
+                    _buildPatientPresetChip('WTR Astig (+1.00/-2.00 × 90°)', 1.00, -2.00, 90.0),
+                    const SizedBox(width: 6),
+                    _buildPatientPresetChip('ATR Astig (-1.00/-1.50 × 180°)', -1.00, -1.50, 180.0),
+                    const SizedBox(width: 6),
+                    _buildPatientPresetChip('Oblique (+2.00/-2.00 × 45°)', 2.00, -2.00, 45.0),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
               _buildValueAdjustmentRow(
                 label: 'Sphere Power',
                 value: _state.patientSphere,
@@ -512,15 +713,6 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 max: 180.0,
                 step: 5.0,
                 isAngle: true,
-              ),
-              _buildValueAdjustmentRow(
-                label: 'Working Distance',
-                value: _state.workingDistance,
-                onChanged: (val) => _state.workingDistance = val,
-                min: 0.0,
-                max: 2.0,
-                step: 0.5,
-                isDiopter: true,
               ),
               const SizedBox(height: 12),
               Container(
@@ -594,16 +786,6 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
               const SizedBox(height: 8),
               _buildTestRxFields(),
             ],
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.list_alt, size: 16),
-              label: const Text('AAO Clinical Presets (0–13)'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 38),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: () => _showAAOPresetsDialog(context),
-            ),
           ],
         ),
       ),
@@ -689,6 +871,20 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
             ),
           ],
         ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _hardPatient,
+            icon: const Icon(Icons.diamond, size: 16, color: Colors.cyanAccent),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.indigo.shade900,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            label: const Text('Hard Clinical Case', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ),
         if (_showTestFeedback) ...[
           const SizedBox(height: 12),
           Container(
@@ -762,54 +958,78 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
     final colorScheme = theme.colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5.0),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: colorScheme.onSurfaceVariant)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  letterSpacing: -0.2,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
               if (isDiopter && value != 0.0) ...[
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     InkWell(
                       onTap: () {
+                        HapticFeedback.selectionClick();
                         AudioService.playTick();
                         double newValue = (-value).clamp(min, max);
                         onChanged(newValue);
                       },
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: (value > 0 ? Colors.green : Colors.red).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: (value > 0 ? Colors.green : Colors.red).withValues(alpha: 0.4)),
+                          color: (value > 0 ? const Color(0xFF34C759) : const Color(0xFFFF3B30)).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: (value > 0 ? const Color(0xFF34C759) : const Color(0xFFFF3B30)).withValues(alpha: 0.35),
+                            width: 1,
+                          ),
                         ),
                         child: Text(
                           'Flip ± Sign',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: value > 0 ? Colors.green : Colors.red),
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.1,
+                            color: value > 0 ? const Color(0xFF248A3D) : const Color(0xFFD70015),
+                          ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 6),
                     InkWell(
                       onTap: () {
+                        HapticFeedback.selectionClick();
                         AudioService.playTick();
                         onChanged(0.0);
                       },
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                         decoration: BoxDecoration(
-                          color: colorScheme.outlineVariant.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(4),
+                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                         ),
                         child: Text(
                           'Plano',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: colorScheme.onSurfaceVariant),
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.1,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     ),
@@ -818,25 +1038,34 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
               ],
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Row(
             children: [
               if (isDiopter && (max - min) >= 4.0) ...[
-                IconButton(
-                  icon: const Icon(Icons.fast_rewind, size: 18),
+                IconButton.filledTonal(
+                  icon: const Icon(Icons.fast_rewind_rounded, size: 17),
                   tooltip: '-1.00 D',
-                  visualDensity: VisualDensity.compact,
+                  style: IconButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
                   onPressed: () {
+                    HapticFeedback.lightImpact();
                     AudioService.playTick();
                     double newValue = (value - 1.00).clamp(min, max);
                     onChanged(newValue);
                   },
                 ),
+                const SizedBox(width: 4),
               ],
-              IconButton(
-                icon: const Icon(Icons.remove_circle_outline),
-                visualDensity: VisualDensity.compact,
+              IconButton.filledTonal(
+                icon: const Icon(Icons.remove_rounded, size: 19),
+                style: IconButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
                 onPressed: () {
+                  HapticFeedback.selectionClick();
                   AudioService.playTick();
                   double newValue = value - step;
                   if (newValue < min) {
@@ -846,25 +1075,44 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                   onChanged(newValue);
                 },
               ),
+              const SizedBox(width: 6),
               Expanded(
                 child: Container(
                   alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  padding: const EdgeInsets.symmetric(vertical: 7),
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-                    border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-                    borderRadius: BorderRadius.circular(8),
+                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                    border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.35)),
+                    borderRadius: BorderRadius.circular(11),
                   ),
-                  child: Text(
-                    formattedValue,
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 150),
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      return ScaleTransition(scale: animation, child: child);
+                    },
+                    child: Text(
+                      formattedValue,
+                      key: ValueKey<String>(formattedValue),
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                        letterSpacing: -0.2,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
                   ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.add_circle_outline),
-                visualDensity: VisualDensity.compact,
+              const SizedBox(width: 6),
+              IconButton.filledTonal(
+                icon: const Icon(Icons.add_rounded, size: 19),
+                style: IconButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
                 onPressed: () {
+                  HapticFeedback.selectionClick();
                   AudioService.playTick();
                   double newValue = value + step;
                   if (newValue > max) {
@@ -875,11 +1123,16 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 },
               ),
               if (isDiopter && (max - min) >= 4.0) ...[
-                IconButton(
-                  icon: const Icon(Icons.fast_forward, size: 18),
+                const SizedBox(width: 4),
+                IconButton.filledTonal(
+                  icon: const Icon(Icons.fast_forward_rounded, size: 17),
                   tooltip: '+1.00 D',
-                  visualDensity: VisualDensity.compact,
+                  style: IconButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
                   onPressed: () {
+                    HapticFeedback.lightImpact();
                     AudioService.playTick();
                     double newValue = (value + 1.00).clamp(min, max);
                     onChanged(newValue);
@@ -893,52 +1146,323 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
     );
   }
 
+  Widget _buildPatientPresetChip(String label, double sphere, double cylinder, double axis) {
+    final bool isCurrent = (_state.patientSphere - sphere).abs() < 0.05 &&
+        (_state.patientCylinder - cylinder).abs() < 0.05 &&
+        (_state.patientAngle - axis).abs() < 0.05;
+    return ActionChip(
+      label: Text(label, style: TextStyle(fontSize: 11, fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal)),
+      avatar: isCurrent ? const Icon(Icons.check, size: 14, color: Colors.blue) : null,
+      backgroundColor: isCurrent ? Colors.blue.withValues(alpha: 0.2) : null,
+      onPressed: () {
+        AudioService.playTick();
+        _state.patientSphere = sphere;
+        _state.patientCylinder = cylinder;
+        _state.patientAngle = axis;
+      },
+    );
+  }
+
+  String _getStreakMeridianLabel(double angle) {
+    final normalized = (angle % 180).round();
+    if ((normalized - 90).abs() <= 10) return 'VERT';
+    if (normalized <= 10 || (normalized - 180).abs() <= 10) return 'HORIZ';
+    return 'OBL';
+  }
+
+  Widget _buildDynamicIslandReflexPill() {
+    if (!_state.showLiveNeutralityFeedback) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Text(
+          'OBSERVE REFLEX',
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white70, letterSpacing: -0.1),
+        ),
+      );
+    }
+
+    final motion = _state.reflexMotion;
+    Color badgeColor;
+    String badgeText;
+    IconData? badgeIcon;
+
+    if (motion == 'neutral') {
+      badgeColor = const Color(0xFFFFD60A); // Apple Gold
+      badgeText = '★ NEUTRAL FLASH';
+      badgeIcon = Icons.auto_awesome_rounded;
+    } else if (motion == 'with') {
+      badgeColor = const Color(0xFF34C759); // Apple Green
+      badgeText = 'WITH (+)';
+      badgeIcon = Icons.arrow_forward_rounded;
+    } else if (motion == 'against') {
+      badgeColor = const Color(0xFFFF453A); // Apple Red
+      badgeText = 'AGAINST (−)';
+      badgeIcon = Icons.arrow_back_rounded;
+    } else {
+      badgeColor = const Color(0xFFBF5AF2); // Apple Purple
+      badgeText = 'SCISSORS';
+      badgeIcon = Icons.content_cut_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: badgeColor.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: badgeColor.withValues(alpha: 0.5), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(badgeIcon, size: 11, color: badgeColor),
+          const SizedBox(width: 4),
+          Text(
+            badgeText,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: badgeColor,
+              letterSpacing: 0.1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // --- Center Panel: Interactive Eye Simulator ---
   Widget _buildCenterPanel() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            const Text(
-              'Eye Simulator View',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.remove_red_eye_rounded, color: Colors.amber, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      '2. Retinoscope Simulator',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: -0.3),
+                    ),
+                  ],
+                ),
+                Text(
+                  'Working Dist: ${_state.workingDistance.toStringAsFixed(2)} D',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // Apple Dynamic Island / Samsung One UI Pill Capsule HUD
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF141416) : const Color(0xFF1C1C1E),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Slit beam indicator with glowing dot & streak angle
+                  InkWell(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      AudioService.playTick();
+                      _state.flipStreakAxis90();
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _getEquippedStreakColor(),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _getEquippedStreakColor().withValues(alpha: 0.8),
+                                  blurRadius: 6,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                          Text(
+                            'Streak ${_state.streakAngle.toStringAsFixed(0)}°',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              _getStreakMeridianLabel(_state.streakAngle),
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amber.shade300,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.sync_rounded, size: 14, color: Colors.white70),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Container(
+                    height: 14,
+                    width: 1,
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
+                  // Dynamic Reflex Status Pill
+                  _buildDynamicIslandReflexPill(),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Gentle gesture guidance hint pill
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.swipe_rounded, size: 14, color: colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Swipe streak light across pupil to observe speed & motion',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             LayoutBuilder(
               builder: (context, constraints) {
                 final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-                final double size = math.min(constraints.maxWidth, isLandscape ? 220.0 : 300.0);
+                final double size = math.min(constraints.maxWidth - 20, isLandscape ? 220.0 : 290.0);
                 return Center(
-                  child: SizedBox(
-                    width: size,
-                    height: size,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        // Realistic procedural Eye Simulator
-                        Positioned.fill(
-                          child: RealisticEye(
-                            beamPosition: _state.beamPosition,
-                            streakAngle: _state.streakAngle,
-                            reflexWidth: _state.reflexWidth,
-                            reflexAngle: _state.reflexAngle,
-                            retinaOpacity: _state.retinaOpacity,
-                            reflectionOpacity: _state.reflectionOpacity,
-                            reflexMotion: _state.reflexMotion,
-                            pupilDilated: _state.pupilDilated,
-                            scissorsMotionActive: _state.scissorsMotionActive,
-                            cataractDensity: _state.cataractDensity,
-                            cornealOpacity: _state.cornealOpacity,
-                            breakDisplacementAngle: _state.breakDisplacementAngle,
-                            velocityFactor: _state.reflexVelocityFactor,
-                            illuminance: _state.reflexIlluminance,
-                            pupilApertureRatio: _state.customPupilAperture,
-                            fundusLuminanceMultiplier: _state.customFundusLuminance,
-                          ),
+                  child: Container(
+                    width: size + 16,
+                    height: size + 16,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: isDark
+                            ? [
+                                const Color(0xFF101012),
+                                const Color(0xFF1E1E22),
+                                const Color(0xFF2C2C30),
+                                const Color(0xFF141416),
+                              ]
+                            : [
+                                const Color(0xFFE5E5EA),
+                                const Color(0xFFD1D1D6),
+                                const Color(0xFFE5E5EA),
+                                const Color(0xFFC7C7CC),
+                              ],
+                        stops: const [0.86, 0.92, 0.96, 1.0],
+                      ),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.16)
+                            : Colors.black.withValues(alpha: 0.12),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: isDark ? 0.6 : 0.2),
+                          blurRadius: 18,
+                          spreadRadius: 2,
+                          offset: const Offset(0, 6),
                         ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(8),
+                    child: SizedBox(
+                      width: size,
+                      height: size,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          // Realistic procedural Eye Simulator
+                          Positioned.fill(
+                            child: ClipOval(
+                              child: RealisticEye(
+                                streakColor: _getEquippedStreakColor(),
+                                beamPosition: _state.beamPosition,
+                                streakAngle: _state.streakAngle,
+                                reflexWidth: _state.reflexWidth,
+                                reflexAngle: _state.reflexAngle,
+                                retinaOpacity: _state.retinaOpacity,
+                                reflectionOpacity: _state.reflectionOpacity,
+                                reflexMotion: _state.reflexMotion,
+                                pupilDilated: _state.pupilDilated,
+                                scissorsMotionActive: _state.scissorsMotionActive,
+                                cataractDensity: _state.cataractDensity,
+                                cornealOpacity: _state.cornealOpacity,
+                                breakDisplacementAngle: _state.breakDisplacementAngle,
+                                skewShearFactor: _state.skewShearFactor,
+                                velocityFactor: _state.reflexVelocityFactor,
+                                illuminance: _state.reflexIlluminance,
+                                pupilFillRatio: _state.pupilFillRatio,
+                                pupilApertureRatio: _state.customPupilAperture,
+                                fundusLuminanceMultiplier: _state.customFundusLuminance,
+                                enableAccelerometerTilt: _state.accelerometerTiltEnabled,
+                              ),
+                            ),
+                          ),
 
                         // 3D Realistic Trial Lens Holder Overlay with Sphere & Cyl Tabs
                         if (_state.plusLensesSelected && (_state.plusSphere != 0 || _state.plusCylinder != 0)) ...[
@@ -981,183 +1505,207 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                               // Snap back towards center
                               _animateBeamBack();
                             },
-                            child: Stack(
-                              children: [
-                                // Light Beam
-                                Center(
-                                  child: Transform.translate(
-                                    offset: Offset(
-                                      _state.beamPosition * math.cos((_state.streakAngle - 90) * math.pi / 180),
-                                      _state.beamPosition * math.sin((_state.streakAngle - 90) * math.pi / 180),
-                                    ),
-                                    child: Transform.rotate(
-                                      angle: (_state.streakAngle - 90) * math.pi / 180,
-                                      child: Container(
-                                        width: 16,
-                                        height: size * 2.2,
-                                        decoration: BoxDecoration(
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: const Color(0xFFFFD54F).withValues(alpha: 0.45),
-                                              blurRadius: 14,
-                                              spreadRadius: 3,
-                                            ),
-                                            BoxShadow(
-                                              color: const Color(0xFFFFF9C4).withValues(alpha: 0.85),
-                                              blurRadius: 6,
-                                              spreadRadius: 1,
-                                            ),
-                                          ],
-                                          gradient: const LinearGradient(
-                                            colors: [
-                                              Color(0x00FFF176),
-                                              Color(0x66FFE082),
-                                              Color(0xDDFFF59D),
-                                              Color(0xFFFFFFFF), // White-hot filament center
-                                              Color(0xDDFFF59D),
-                                              Color(0x66FFE082),
-                                              Color(0x00FFF176),
-                                            ],
-                                            stops: [0.0, 0.20, 0.38, 0.50, 0.62, 0.80, 1.0],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                            child: Container(color: Colors.transparent), // Transparent touch target
                           ),
                         ),
                       ],
                     ),
                   ),
-                );
-              },
+                ),
+              );
+            },
             ),
             const SizedBox(height: 16),
-            // Quick Streak Orientation & Working Distance Toolbar
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 6,
-              runSpacing: 6,
+            // Streamlined Retinoscope Streak & Clinical Tools Toolbar
+            Column(
               children: [
-                // 🌟 Auto-Sweep Controller Chip
-                ActionChip(
-                  avatar: Icon(
-                    _isAutoSweep ? Icons.pause_circle : Icons.play_circle,
-                    size: 16,
-                    color: _isAutoSweep ? Colors.amberAccent : Colors.blue,
-                  ),
-                  label: Text(
-                    _isAutoSweep ? 'Auto-Sweep' : 'Auto-Sweep',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: _isAutoSweep ? Colors.amberAccent : null,
+                // Primary Streak Collar Controls
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    // Auto-Sweep Controller
+                    ActionChip(
+                      avatar: Icon(
+                        _isAutoSweep ? Icons.pause_circle : Icons.play_circle,
+                        size: 16,
+                        color: _isAutoSweep ? Colors.amberAccent : Colors.blue,
+                      ),
+                      label: Text(
+                        _isAutoSweep ? 'Auto-Sweep ${_autoSweepSpeed}x' : 'Auto-Sweep',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _isAutoSweep ? Colors.amberAccent : null,
+                        ),
+                      ),
+                      backgroundColor: _isAutoSweep ? Colors.amber.withValues(alpha: 0.2) : null,
+                      onPressed: () {
+                        if (!_isAutoSweep) {
+                          _toggleAutoSweep();
+                        } else {
+                          if (_autoSweepSpeed == 1.0) {
+                            _setAutoSweepSpeed(1.5);
+                          } else if (_autoSweepSpeed == 1.5) {
+                            _setAutoSweepSpeed(2.0);
+                          } else {
+                            _toggleAutoSweep();
+                            _setAutoSweepSpeed(1.0);
+                          }
+                        }
+                      },
                     ),
-                  ),
-                  backgroundColor: _isAutoSweep ? Colors.amber.withValues(alpha: 0.2) : null,
-                  onPressed: _toggleAutoSweep,
-                ),
-                if (_isAutoSweep)
-                  ActionChip(
-                    label: Text('${_autoSweepSpeed}x', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                    onPressed: () {
-                      if (_autoSweepSpeed == 1.0) {
-                        _setAutoSweepSpeed(1.5);
-                      } else if (_autoSweepSpeed == 1.5) {
-                        _setAutoSweepSpeed(2.0);
-                      } else {
-                        _setAutoSweepSpeed(1.0);
-                      }
-                    },
-                  ),
-                ActionChip(
-                  avatar: const Icon(Icons.swap_vert, size: 16),
-                  label: const Text('90° (V)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  onPressed: () => _state.streakAngle = 90.0,
-                ),
-                ActionChip(
-                  avatar: const Icon(Icons.swap_horiz, size: 16),
-                  label: const Text('180° (H)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  onPressed: () => _state.streakAngle = 180.0,
-                ),
-                ActionChip(
-                  avatar: const Icon(Icons.flip, size: 15),
-                  label: const Text('Flip 90°', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  onPressed: () => _state.flipStreakAxis90(),
-                ),
-                PopupMenuButton<double>(
-                  tooltip: 'Oblique & Straddle Angles',
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+                    ActionChip(
+                      avatar: const Icon(Icons.swap_vert, size: 16),
+                      label: const Text('90° (V)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      backgroundColor: (_state.streakAngle - 90.0).abs() < 1.0 ? Colors.blue.withValues(alpha: 0.2) : null,
+                      onPressed: () => _state.streakAngle = 90.0,
                     ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.tune, size: 14, color: Colors.blueGrey),
-                        SizedBox(width: 4),
-                        Text('More Angles', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    ActionChip(
+                      avatar: const Icon(Icons.swap_horiz, size: 16),
+                      label: const Text('180° (H)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      backgroundColor: (_state.streakAngle - 180.0).abs() < 1.0 ? Colors.blue.withValues(alpha: 0.2) : null,
+                      onPressed: () => _state.streakAngle = 180.0,
+                    ),
+                    ActionChip(
+                      avatar: const Icon(Icons.flip, size: 15),
+                      label: const Text('Flip 90°', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      onPressed: () => _state.flipStreakAxis90(),
+                    ),
+                    PopupMenuButton<double>(
+                      tooltip: 'Oblique Meridians',
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.tune, size: 14, color: Colors.blueGrey),
+                            SizedBox(width: 4),
+                            Text('Collar...', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      onSelected: (angle) => _state.streakAngle = angle,
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: 45.0, child: Text('45° Oblique Meridian')),
+                        PopupMenuItem(value: 135.0, child: Text('135° Oblique Meridian')),
+                        PopupMenuItem(value: 30.0, child: Text('30° Meridian')),
+                        PopupMenuItem(value: 60.0, child: Text('60° Meridian')),
+                        PopupMenuItem(value: 120.0, child: Text('120° Meridian')),
+                        PopupMenuItem(value: 150.0, child: Text('150° Meridian')),
                       ],
                     ),
-                  ),
-                  onSelected: (angle) {
-                    if (angle == -45) {
-                      _state.straddleAxis(-1);
-                    } else if (angle == 450) {
-                      _state.straddleAxis(1);
-                    } else {
-                      _state.streakAngle = angle;
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(value: 45.0, child: Text('45° Oblique Meridian')),
-                    const PopupMenuItem(value: 135.0, child: Text('135° Oblique Meridian')),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem(value: -45.0, child: Text('-45° Copeland Straddle')),
-                    const PopupMenuItem(value: 450.0, child: Text('+45° Copeland Straddle')),
+                    FilterChip(
+                      avatar: Icon(_state.sleeveUp ? Icons.arrow_upward : Icons.arrow_downward, size: 15),
+                      label: Text(_state.sleeveUp ? 'Concave Mirror' : 'Plane Mirror', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      selected: _state.sleeveUp,
+                      onSelected: (val) => _state.sleeveUp = val,
+                    ),
                   ],
                 ),
-                FilterChip(
-                  avatar: Icon(_state.sleeveUp ? Icons.arrow_upward : Icons.arrow_downward, size: 15),
-                  label: Text(_state.sleeveUp ? 'Concave Mirror' : 'Plane Mirror', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  selected: _state.sleeveUp,
-                  onSelected: (val) => _state.sleeveUp = val,
-                ),
-                FilterChip(
-                  avatar: const Icon(Icons.auto_graph, size: 15, color: Colors.cyanAccent),
-                  label: const Text('Ray Diagram', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  selected: _state.isRayDiagramVisible,
-                  onSelected: (_) => _state.toggleRayDiagram(),
-                ),
-                FilterChip(
-                  avatar: const Icon(Icons.scatter_plot, size: 15, color: Colors.purpleAccent),
-                  label: const Text('Thibos Plot', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  selected: _state.isVectorPlotVisible,
-                  onSelected: (_) => _state.toggleVectorPlot(),
-                ),
-                FilterChip(
-                  avatar: const Icon(Icons.child_care, size: 15, color: Colors.amberAccent),
-                  label: const Text('Mohindra Pediatric', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  selected: _state.isMohindraMode,
-                  onSelected: (_) => _state.toggleMohindraMode(),
-                ),
-                ActionChip(
-                  avatar: const Icon(Icons.list_alt, size: 15),
-                  label: const Text('AAO Presets', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  onPressed: () => _showAAOPresetsDialog(context),
+                const SizedBox(height: 6),
+                // Clinical Protocol & Optical Analysis Tools Row
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    ActionChip(
+                      avatar: const Icon(Icons.menu_book, size: 15, color: Colors.greenAccent),
+                      label: const Text('Clinical Protocols', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      onPressed: () => _showProtocolSelectionDialog(context),
+                    ),
+                    ActionChip(
+                      avatar: const Icon(Icons.explore, size: 15, color: Colors.orangeAccent),
+                      label: const Text('Copeland Straddle (±45°)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      onPressed: () => _showCopelandStraddleModal(context),
+                    ),
+                    PopupMenuButton<String>(
+                      tooltip: 'Ray Optics & Vector Analysis',
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible)
+                              ? Colors.cyan.withValues(alpha: 0.15)
+                              : Colors.grey.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible)
+                                ? Colors.cyan
+                                : Colors.grey.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.auto_graph, size: 14, color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible) ? Colors.cyan : Colors.blueGrey),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Optics Tools',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible) ? Colors.cyan.shade700 : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      onSelected: (action) {
+                        if (action == 'ray') {
+                          _state.toggleRayDiagram();
+                        } else if (action == 'thibos') {
+                          _state.toggleVectorPlot();
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'ray',
+                          child: Row(
+                            children: [
+                              Icon(
+                                _state.isRayDiagramVisible ? Icons.check_box : Icons.check_box_outline_blank,
+                                color: Colors.cyan,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              const Text('2D Ray Tracing Diagram'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'thibos',
+                          child: Row(
+                            children: [
+                              Icon(
+                                _state.isVectorPlotVisible ? Icons.check_box : Icons.check_box_outline_blank,
+                                color: Colors.purple,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              const Text('Thibos (J0, J45) Vector Plot'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ],
             ),
             const SizedBox(height: 8),
             // Working Distance Quick Chips
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 6,
+              runSpacing: 6,
               children: [
                 const Text('Working Dist: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
                 ChoiceChip(
@@ -1165,13 +1713,11 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                   selected: (_state.workingDistance - 2.00).abs() < 0.05,
                   onSelected: (_) => _state.setWorkingDistancePreset(50),
                 ),
-                const SizedBox(width: 6),
                 ChoiceChip(
                   label: const Text('67 cm (+1.50 D)', style: TextStyle(fontSize: 11)),
                   selected: (_state.workingDistance - 1.50).abs() < 0.05,
                   onSelected: (_) => _state.setWorkingDistancePreset(67),
                 ),
-                const SizedBox(width: 6),
                 ChoiceChip(
                   label: const Text('1 m (+1.00 D)', style: TextStyle(fontSize: 11)),
                   selected: (_state.workingDistance - 1.00).abs() < 0.05,
@@ -1217,12 +1763,16 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
               children: [
                 _buildInfoBadge(
                   'Reflex Motion',
-                  _state.reflexMotion == 'neutral'
-                      ? 'NEUTRAL FLASH'
-                      : (_state.reflexMotion == 'with' ? 'WITH (+ LENS)' : 'AGAINST (- LENS)'),
-                  _state.reflexMotion == 'neutral'
-                      ? Colors.amber.shade800
-                      : (_state.reflexMotion == 'with' ? Colors.green : Colors.red),
+                  !_state.showLiveNeutralityFeedback
+                      ? 'OBSERVE REFLEX'
+                      : (_state.reflexMotion == 'neutral'
+                          ? 'NEUTRAL FLASH'
+                          : (_state.reflexMotion == 'with' ? 'WITH (+ LENS)' : 'AGAINST (- LENS)')),
+                  !_state.showLiveNeutralityFeedback
+                      ? Colors.grey
+                      : (_state.reflexMotion == 'neutral'
+                          ? Colors.amber.shade800
+                          : (_state.reflexMotion == 'with' ? Colors.green : Colors.red)),
                 ),
                 _buildInfoBadge('Reflex Width', '${_state.reflexWidth.abs().toStringAsFixed(1)} px', Colors.orange),
                 _buildInfoBadge('Reflex Meridian', '${_state.reflexAngle.toStringAsFixed(0)}°', Colors.blue),
@@ -1306,7 +1856,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
           const SizedBox(height: 8),
           Text(
             hint.body,
-            style: TextStyle(fontSize: 12, height: 1.45, color: Colors.black87),
+            style: TextStyle(fontSize: 12, height: 1.45, ),
           ),
           const SizedBox(height: 8),
           ClipRRect(
@@ -1362,46 +1912,197 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
 
   // --- Right Panel: Trial Lenses & Streak Controls ---
   Widget _buildRightPanel() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Trial Lenses (Phoropter)',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            // Plus vs Minus Lenses Tab
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => _state.plusLensesSelected = true,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _state.plusLensesSelected ? Colors.green : Colors.grey[200],
-                      foregroundColor: _state.plusLensesSelected ? Colors.white : Colors.black87,
-                      elevation: _state.plusLensesSelected ? 2 : 0,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: (_state.plusLensesSelected ? const Color(0xFF34C759) : const Color(0xFFFF3B30)).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.visibility_rounded,
+                        color: _state.plusLensesSelected ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                        size: 20,
+                      ),
                     ),
-                    child: const Text('Plus Lenses'),
-                  ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      '3. Trial Lenses (Phoropter)',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: -0.3),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => _state.plusLensesSelected = false,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: !_state.plusLensesSelected ? Colors.red : Colors.grey[200],
-                      foregroundColor: !_state.plusLensesSelected ? Colors.white : Colors.black87,
-                      elevation: !_state.plusLensesSelected ? 2 : 0,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (_state.plusLensesSelected ? const Color(0xFF34C759) : const Color(0xFFFF3B30)).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: (_state.plusLensesSelected ? const Color(0xFF34C759) : const Color(0xFFFF3B30)).withValues(alpha: 0.35),
                     ),
-                    child: const Text('Minus Lenses'),
+                  ),
+                  child: Text(
+                    _state.plusLensesSelected ? 'Plus Mode (+)' : 'Minus Mode (−)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                      letterSpacing: -0.1,
+                      color: _state.plusLensesSelected ? const Color(0xFF248A3D) : const Color(0xFFD70015),
+                    ),
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+
+            // Apple Cupertino / Samsung One UI Segmented Sliding Pill Selector
+            Container(
+              height: 48,
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFE5E5EA),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        AudioService.playTick();
+                        setState(() => _state.plusLensesSelected = true);
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOutCubic,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: _state.plusLensesSelected
+                              ? const LinearGradient(
+                                  colors: [Color(0xFF34C759), Color(0xFF248A3D)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                              : null,
+                          color: _state.plusLensesSelected ? null : Colors.transparent,
+                          boxShadow: _state.plusLensesSelected
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(0xFF34C759).withValues(alpha: 0.35),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add_circle_outline_rounded,
+                                size: 16,
+                                color: _state.plusLensesSelected
+                                    ? Colors.white
+                                    : (isDark ? Colors.white70 : Colors.black87),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Plus Lenses (+)',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: _state.plusLensesSelected ? FontWeight.w700 : FontWeight.w500,
+                                  letterSpacing: -0.2,
+                                  color: _state.plusLensesSelected
+                                      ? Colors.white
+                                      : (isDark ? Colors.white70 : Colors.black87),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        AudioService.playTick();
+                        setState(() => _state.plusLensesSelected = false);
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOutCubic,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: !_state.plusLensesSelected
+                              ? const LinearGradient(
+                                  colors: [Color(0xFFFF3B30), Color(0xFFD70015)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                              : null,
+                          color: !_state.plusLensesSelected ? null : Colors.transparent,
+                          boxShadow: !_state.plusLensesSelected
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(0xFFFF3B30).withValues(alpha: 0.35),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.remove_circle_outline_rounded,
+                                size: 16,
+                                color: !_state.plusLensesSelected
+                                    ? Colors.white
+                                    : (isDark ? Colors.white70 : Colors.black87),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Minus Lenses (−)',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: !_state.plusLensesSelected ? FontWeight.w700 : FontWeight.w500,
+                                  letterSpacing: -0.2,
+                                  color: !_state.plusLensesSelected
+                                      ? Colors.white
+                                      : (isDark ? Colors.white70 : Colors.black87),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const Divider(height: 24),
             if (_state.plusLensesSelected) ...[
@@ -1411,7 +2112,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 onChanged: (val) => _state.plusSphere = val,
                 min: -20.0,
                 max: 20.0,
-                step: 0.25,
+                step: _state.sphereStep,
                 isDiopter: true,
               ),
               _buildValueAdjustmentRow(
@@ -1420,7 +2121,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 onChanged: (val) => _state.plusCylinder = val,
                 min: -6.0,
                 max: 6.0,
-                step: 0.25,
+                step: _state.cylinderStep,
                 isDiopter: true,
               ),
               _buildValueAdjustmentRow(
@@ -1429,7 +2130,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 onChanged: (val) => _state.plusAxis = val,
                 min: 5.0,
                 max: 180.0,
-                step: 5.0,
+                step: _state.axisStep,
                 isAngle: true,
               ),
             ] else ...[
@@ -1439,7 +2140,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 onChanged: (val) => _state.minusSphere = val,
                 min: -20.0,
                 max: 20.0,
-                step: 0.25,
+                step: _state.sphereStep,
                 isDiopter: true,
               ),
               _buildValueAdjustmentRow(
@@ -1448,7 +2149,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 onChanged: (val) => _state.minusCylinder = val,
                 min: -6.0,
                 max: 6.0,
-                step: 0.25,
+                step: _state.cylinderStep,
                 isDiopter: true,
               ),
               _buildValueAdjustmentRow(
@@ -1457,7 +2158,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 onChanged: (val) => _state.minusAxis = val,
                 min: 5.0,
                 max: 180.0,
-                step: 5.0,
+                step: _state.axisStep,
                 isAngle: true,
               ),
             ],
@@ -1476,9 +2177,6 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 double transA = ta + 90.0;
                 if (transA > 180.0) transA -= 180.0;
                 final double transNetS = transS - _state.workingDistance;
-
-                final theme = Theme.of(context);
-                final colorScheme = theme.colorScheme;
                 final bool isDark = _state.isDarkMode;
 
                 return Container(
@@ -1565,58 +2263,6 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 _state.minusAxis = 90.0;
               },
             ),
-            const SizedBox(height: 8),
-            ExpansionTile(
-              title: const Text(
-                'Pathology Simulation',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-              ),
-              subtitle: const Text(
-                'Simulate cataracts & corneal media opacities',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Nuclear Cataract Density', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                          Text('${(_state.cataractDensity * 100).round()}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                        ],
-                      ),
-                      Slider(
-                        value: _state.cataractDensity,
-                        min: 0.0,
-                        max: 1.0,
-                        divisions: 10,
-                        activeColor: Colors.amber[800],
-                        onChanged: (val) => _state.cataractDensity = val,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Corneal Opacity / Scar', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                          Text('${(_state.cornealOpacity * 100).round()}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                        ],
-                      ),
-                      Slider(
-                        value: _state.cornealOpacity,
-                        min: 0.0,
-                        max: 1.0,
-                        divisions: 10,
-                        activeColor: Colors.blueGrey,
-                        onChanged: (val) => _state.cornealOpacity = val,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -1692,7 +2338,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                     children: [
                       Text(steps[idx]['step']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue)),
                       const SizedBox(height: 2),
-                      Text(steps[idx]['desc']!, style: const TextStyle(fontSize: 12, height: 1.35, color: Colors.black87)),
+                      Text(steps[idx]['desc']!, style: const TextStyle(fontSize: 12, height: 1.35, )),
                     ],
                   ),
                 );
@@ -1705,6 +2351,140 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
               child: const Text('Understood'),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  void _showCopelandStraddleModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return ListenableBuilder(
+          listenable: _state,
+          builder: (context, _) {
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                  top: 16,
+                ),
+                child: CopelandStraddleView(state: _state),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showProtocolSelectionDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.menu_book, color: Colors.teal),
+                        SizedBox(width: 8),
+                        Text(
+                          'Clinical Protocol Guided Modes',
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const Text(
+                  'Select a standardized clinical examination procedure to practice step-by-step:',
+                  style: TextStyle(fontSize: 12.5, color: Colors.grey),
+                ),
+                const SizedBox(height: 12),
+                Builder(
+                  builder: (context) {
+                    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+                    return Column(
+                      children: [
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: isDark ? Colors.green.withValues(alpha: 0.2) : const Color(0xFFE8F5E9),
+                            child: Icon(Icons.check_circle_outline, color: isDark ? Colors.greenAccent : Colors.green),
+                          ),
+                          title: const Text('AAO Plus-Cyl Protocol', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                          subtitle: const Text('Ophthalmology standard: 1st meridian sphere, sweep 90°, add +cyl', style: TextStyle(fontSize: 11.5)),
+                          trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _state.setProtocol(ClinicalProtocolMode.aaoPlusCyl);
+                          },
+                        ),
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: isDark ? Colors.red.withValues(alpha: 0.2) : const Color(0xFFFFEBEE),
+                            child: Icon(Icons.swap_horiz, color: isDark ? Colors.redAccent : Colors.red),
+                          ),
+                          title: const Text('Optometry Minus-Cyl Protocol', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                          subtitle: const Text('ANSI standard: Neutralize most WITH meridian, sweep 90°, add -cyl', style: TextStyle(fontSize: 11.5)),
+                          trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _state.setProtocol(ClinicalProtocolMode.optometryMinusCyl);
+                          },
+                        ),
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: isDark ? Colors.orange.withValues(alpha: 0.2) : const Color(0xFFFFF3E0),
+                            child: Icon(Icons.child_care, color: isDark ? Colors.orangeAccent : Colors.orange),
+                          ),
+                          title: const Text('Mohindra Pediatric Near Retinoscopy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                          subtitle: const Text('Dark room at 50 cm with -1.25 D tonic accommodation deduction', style: TextStyle(fontSize: 11.5)),
+                          trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _state.setProtocol(ClinicalProtocolMode.mohindraPediatric);
+                          },
+                        ),
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: isDark ? Colors.purple.withValues(alpha: 0.2) : const Color(0xFFF3E5F5),
+                            child: Icon(Icons.auto_stories, color: isDark ? Colors.purpleAccent : Colors.purple),
+                          ),
+                          title: const Text('MEM Dynamic Retinoscopy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                          subtitle: const Text('Near card fixation at 40 cm to measure accommodative lag/lead', style: TextStyle(fontSize: 11.5)),
+                          trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _state.setProtocol(ClinicalProtocolMode.memDynamic);
+                          },
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -1742,76 +2522,85 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                   style: TextStyle(fontSize: 13, color: Colors.grey),
                 ),
                 const SizedBox(height: 12),
-                ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFE8F5E9),
-                    child: Icon(Icons.looks_one, color: Colors.green),
-                  ),
-                  title: const Text('Beginner — Spherical', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: const Text('Simple myopia & hyperopia (-4.00D to +4.00D)', style: TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _state.generateRandomCase('Beginner');
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Generated: Beginner Spherical Case')),
-                      );
-                    }
-                  },
-                ),
-                ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFFFF8E1),
-                    child: Icon(Icons.looks_two, color: Colors.amber),
-                  ),
-                  title: const Text('Intermediate — Regular Astigmatism', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: const Text('WTR / ATR astigmatism on 90° & 180° principal meridians', style: TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _state.generateRandomCase('Intermediate');
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Generated: Intermediate Astigmatism Case')),
-                      );
-                    }
-                  },
-                ),
-                ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFFFEBEE),
-                    child: Icon(Icons.looks_3, color: Colors.red),
-                  ),
-                  title: const Text('Advanced — Oblique & Aberrations', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: const Text('High oblique cylinder + scissors spherical aberration', style: TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _state.generateRandomCase('Advanced');
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Generated: Advanced Oblique Case')),
-                      );
-                    }
-                  },
-                ),
-                ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFF3E5F5),
-                    child: Icon(Icons.remove_red_eye, color: Colors.purple),
-                  ),
-                  title: const Text('Pathology — Media Opacities', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: const Text('Simulates nuclear cataracts and anterior corneal scars', style: TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _state.generateRandomCase('Pathology');
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Generated: Pathology Simulation Case')),
-                      );
-                    }
+                Builder(
+                  builder: (context) {
+                    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+                    return Column(
+                      children: [
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: isDark ? Colors.green.withValues(alpha: 0.2) : const Color(0xFFE8F5E9),
+                            child: Icon(Icons.looks_one, color: isDark ? Colors.greenAccent : Colors.green),
+                          ),
+                          title: const Text('Beginner — Spherical', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          subtitle: const Text('Simple myopia & hyperopia (-4.00D to +4.00D)', style: TextStyle(fontSize: 12)),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _state.generateRandomCase('Beginner');
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Generated: Beginner Spherical Case')),
+                              );
+                            }
+                          },
+                        ),
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: isDark ? Colors.amber.withValues(alpha: 0.2) : const Color(0xFFFFF8E1),
+                            child: Icon(Icons.looks_two, color: isDark ? Colors.amberAccent : Colors.amber),
+                          ),
+                          title: const Text('Intermediate — Regular Astigmatism', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          subtitle: const Text('WTR / ATR astigmatism on 90° & 180° principal meridians', style: TextStyle(fontSize: 12)),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _state.generateRandomCase('Intermediate');
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Generated: Intermediate Astigmatism Case')),
+                              );
+                            }
+                          },
+                        ),
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: isDark ? Colors.red.withValues(alpha: 0.2) : const Color(0xFFFFEBEE),
+                            child: Icon(Icons.looks_3, color: isDark ? Colors.redAccent : Colors.red),
+                          ),
+                          title: const Text('Advanced — Oblique & Aberrations', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          subtitle: const Text('High oblique cylinder + scissors spherical aberration', style: TextStyle(fontSize: 12)),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _state.generateRandomCase('Advanced');
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Generated: Advanced Oblique Case')),
+                              );
+                            }
+                          },
+                        ),
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: isDark ? Colors.purple.withValues(alpha: 0.2) : const Color(0xFFF3E5F5),
+                            child: Icon(Icons.remove_red_eye, color: isDark ? Colors.purpleAccent : Colors.purple),
+                          ),
+                          title: const Text('Pathology — Media Opacities', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          subtitle: const Text('Simulates nuclear cataracts and anterior corneal scars', style: TextStyle(fontSize: 12)),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _state.generateRandomCase('Pathology');
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Generated: Pathology Simulation Case')),
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    );
                   },
                 ),
                 const SizedBox(height: 8),
@@ -1858,13 +2647,18 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
               child: Column(
                 children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final bool isDark = Theme.of(context).brightness == Brightness.dark;
+                      return Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white24 : Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
                   const Text(
@@ -1883,12 +2677,13 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                       controller: scrollController,
                       itemCount: presetLabels.length,
                       separatorBuilder: (context, index) => const Divider(height: 1),
-                      itemBuilder: (_, idx) {
+                      itemBuilder: (itemCtx, idx) {
                         final bool isSelected = _state.selectedPreset == idx;
+                        final bool isDark = Theme.of(itemCtx).brightness == Brightness.dark;
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: isSelected ? Colors.blue : Colors.grey[200],
-                            foregroundColor: isSelected ? Colors.white : Colors.black87,
+                            backgroundColor: isSelected ? Colors.blue : (isDark ? const Color(0xFF2C2C2E) : Colors.grey[200]),
+                            foregroundColor: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
                             child: Text('$idx', style: const TextStyle(fontWeight: FontWeight.bold)),
                           ),
                           title: Text(presetLabels[idx]['name']!, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, fontSize: 13)),
@@ -1917,12 +2712,13 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
   }
 
   Widget _buildTutorialBanner() {
+    final bool isDark = _state.isDarkMode || Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue[50],
+        color: isDark ? Colors.blue.withValues(alpha: 0.15) : Colors.blue[50],
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF90CAF9)),
+        border: Border.all(color: isDark ? Colors.blue.withValues(alpha: 0.4) : const Color(0xFF90CAF9)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1932,13 +2728,13 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
             children: [
               Row(
                 children: [
-                  Icon(Icons.school, color: Colors.blue[700]),
+                  Icon(Icons.school, color: isDark ? Colors.blueAccent : Colors.blue[700]),
                   const SizedBox(width: 8),
                   Text(
                     'Step ${_state.currentInstructionStep + 1} of 10',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue[900],
+                      color: isDark ? Colors.blueAccent : Colors.blue[900],
                       fontSize: 14,
                     ),
                   ),
@@ -1953,7 +2749,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
           const SizedBox(height: 8),
           Text(
             _state.instructionSteps[_state.currentInstructionStep],
-            style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.4),
+            style: TextStyle(fontSize: 14, height: 1.4, color: isDark ? Colors.white.withValues(alpha: 0.92) : Colors.black87),
           ),
           const SizedBox(height: 12),
           Row(
@@ -1984,12 +2780,14 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
   }
 
   Widget _buildSettingsDrawer(BuildContext context) {
-    Color primaryColor = _getThemeColor();
+    final Color primaryColor = _getThemeColor();
+
     return Drawer(
       child: Column(
         children: [
           // Medical Suite Branding Header
-          UserAccountsDrawerHeader(
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 44, 16, 16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [primaryColor, primaryColor.withValues(alpha: 0.85)],
@@ -1997,290 +2795,442 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 end: Alignment.bottomRight,
               ),
             ),
-            currentAccountPicture: Container(
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-              ),
-              padding: const EdgeInsets.all(4),
-              child: ClipOval(
-                child: CustomPaint(
-                  size: const Size(60, 60),
-                  painter: EyePainter(
-                    beamPosition: 0,
-                    streakAngle: 90,
-                    reflexWidth: 3,
-                    reflexAngle: 90,
-                    retinaOpacity: 0.8,
-                    reflectionOpacity: 0.9,
-                    reflexMotion: 'neutral',
-                    hippusFactor: 1.0,
-                    pupilDilated: false,
-                    scissorsMotionActive: false,
-                  ),
-                ),
-              ),
-            ),
-            accountName: const Text(
-              'Retinoscopy Medical Suite',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            accountEmail: const Text('Ophthalmic Optics & Refraction Engine'),
-          ),
-
-          // Clinical Suite Section
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
+            child: Row(
               children: [
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: Text(
-                    'CLINICAL SUITE & TOOLS',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey, letterSpacing: 0.5),
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/images/app_icon.jpg',
+                      fit: BoxFit.cover,
+                      errorBuilder: (ctx, err, stackTrace) => CustomPaint(
+                        painter: EyePainter(
+                          streakColor: _getEquippedStreakColor(),
+                          beamPosition: 0,
+                          streakAngle: 90,
+                          reflexWidth: 3,
+                          reflexAngle: 90,
+                          retinaOpacity: 0.8,
+                          reflectionOpacity: 0.9,
+                          reflexMotion: 'neutral',
+                          hippusFactor: 1.0,
+                          pupilDilated: false,
+                          scissorsMotionActive: false,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.people_outline, color: Colors.blue),
-                  title: const Text('Patient Profiles', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: const Text('Custom clinical refractive records', style: TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.chevron_right, size: 18),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const PatientProfilesScreen()),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.quiz_outlined, color: Colors.orange),
-                  title: const Text('Exam Assessment Mode', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: const Text('Timed 10-case Board competency exam', style: TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.chevron_right, size: 18),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ExamScreen()),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.calculate_outlined, color: Colors.teal),
-                  title: const Text('Optical Cross & Calculator', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: const Text('2-meridian cross & power transposition', style: TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.chevron_right, size: 18),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const OpticalCalculatorScreen()),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.psychology_outlined, color: Colors.deepPurple),
-                  title: const Text('AI Clinical Optics Tutor', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: const Text('Offline ophthalmic physics assistant', style: TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.chevron_right, size: 18),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AiTutorScreen()),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.menu_book_outlined, color: Colors.indigo),
-                  title: const Text('Clinical Handbook', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: const Text('Retinoscopy physics & procedural guides', style: TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.chevron_right, size: 18),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const HandbookScreen()),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.history, color: Colors.amber),
-                  title: const Text('Exam History & Certificate', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: const Text('Track scores & generate certificates', style: TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.chevron_right, size: 18),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const HistoryScreen()),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.videocam_outlined, color: Colors.cyan),
-                  title: const Text('AR Retinoscopy Trainer', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: const Text('Live camera reticle streak trainer', style: TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.chevron_right, size: 18),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ARModeScreen()),
-                    );
-                  },
-                ),
-
-                const Divider(),
-
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: Text(
-                    'REALISTIC OPTICAL PHYSICS & CALIBRATION',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey, letterSpacing: 0.5),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                const SizedBox(width: 14),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Base Pupil Aperture Size', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                          Text('${(_state.customPupilAperture * 10).toStringAsFixed(1)} mm', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
-                        ],
-                      ),
-                      Slider(
-                        value: _state.customPupilAperture,
-                        min: 0.25,
-                        max: 0.85,
-                        divisions: 12,
-                        activeColor: primaryColor,
-                        onChanged: (val) {
-                          _state.customPupilAperture = val;
-                        },
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Fundus Luminance & Glow', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                          Text('${(_state.customFundusLuminance * 100).round()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange)),
-                        ],
-                      ),
-                      Slider(
-                        value: _state.customFundusLuminance,
-                        min: 0.50,
-                        max: 2.00,
-                        divisions: 15,
-                        activeColor: Colors.orange,
-                        onChanged: (val) {
-                          _state.customFundusLuminance = val;
-                        },
-                      ),
-                      const SizedBox(height: 4),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.restart_alt, size: 16),
-                        label: const Text('Reset Optical Physics to Default', style: TextStyle(fontSize: 12)),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(double.infinity, 36),
+                      const Text(
+                        'Retinoscopy Suite',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                          color: Colors.white,
+                          letterSpacing: -0.3,
                         ),
-                        onPressed: () {
-                          _state.resetOpticalPhysicsToDefault();
-                        },
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Clinical Optics & Refraction',
+                        style: TextStyle(fontSize: 11.5, color: Colors.white70),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '🔥 ${StorageService.getStudyStreak()} Day Practice Streak',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amberAccent,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Scrollable Streamlined Menu
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 6.0),
+              children: [
+                // ── Section 1: Clinical Applications & Tools ───────────
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 10, 16, 4),
+                  child: Text(
+                    'CLINICAL TOOLS & EDUCATION',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey, letterSpacing: 0.5),
+                  ),
+                ),
+                ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  leading: const Icon(Icons.quiz_rounded, color: Colors.orange),
+                  title: const Text('Clinical Board Exam & History', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                  subtitle: const Text('10-case assessment & certification', style: TextStyle(fontSize: 11)),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ExamScreen()));
+                  },
+                ),
+                ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  leading: const Icon(Icons.emoji_events_rounded, color: Colors.amber),
+                  title: const Text('Global Leaderboard & Rankings', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                  subtitle: const Text('Verified optometry rankings & CME points', style: TextStyle(fontSize: 11)),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const LeaderboardScreen()));
+                  },
+                ),
+                ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  leading: const Icon(Icons.calculate_rounded, color: Colors.teal),
+                  title: const Text('Optical Cross & Calculator', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                  subtitle: const Text('Dual-meridian & power transposition', style: TextStyle(fontSize: 11)),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const OpticalCalculatorScreen()));
+                  },
+                ),
+                ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  leading: const Icon(Icons.psychology_rounded, color: Colors.deepPurple),
+                  title: const Text('AI Clinical Optics Tutor', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                  subtitle: const Text('Offline ophthalmic physics assistant', style: TextStyle(fontSize: 11)),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const AiTutorScreen()));
+                  },
+                ),
+                ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  leading: const Icon(Icons.menu_book_rounded, color: Colors.indigo),
+                  title: const Text('Clinical Handbook & Guidelines', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                  subtitle: const Text('AAO protocols, physics & diagrams', style: TextStyle(fontSize: 11)),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const HandbookScreen()));
+                  },
+                ),
+                ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  leading: const Icon(Icons.folder_shared_rounded, color: Colors.blue),
+                  title: const Text('Patient Refractive Records', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                  subtitle: const Text('Custom clinical patient cases', style: TextStyle(fontSize: 11)),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const PatientProfilesScreen()));
+                  },
+                ),
+
+                const Divider(height: 16),
+
+                // ── Section 2: Optics & Calibration ────────────────────
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 6, 16, 4),
+                  child: Text(
+                    'OPTICS & CALIBRATION',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey, letterSpacing: 0.5),
+                  ),
+                ),
+                ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  leading: Icon(Icons.tune_rounded, color: _getEquippedStreakColor()),
+                  title: const Text('Retinoscope Optics & Filters', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                  subtitle: Text('Active: ${StorageService.getEquippedCosmetic()}', style: const TextStyle(fontSize: 11)),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreScreen()))
+                        .then((_) => setState(() {}));
+                  },
+                ),
+                Theme(
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                    leading: const Icon(Icons.visibility_off_rounded, color: Colors.amber),
+                    title: const Text('Pathology & Aberrations', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                    subtitle: const Text('Mydriasis, scissors, cataract & opacity', style: TextStyle(fontSize: 11)),
+                    children: [
+                      SwitchListTile(
+                        dense: true,
+                        visualDensity: VisualDensity.compact,
+                        title: const Text('Mydriasis (Dilated Pupil)', style: TextStyle(fontSize: 12.5)),
+                        value: _state.pupilDilated,
+                        activeTrackColor: primaryColor,
+                        onChanged: (val) => setState(() => _state.pupilDilated = val),
+                      ),
+                      SwitchListTile(
+                        dense: true,
+                        visualDensity: VisualDensity.compact,
+                        title: const Text('Scissors Motion Aberration', style: TextStyle(fontSize: 12.5)),
+                        value: _state.scissorsMotionActive,
+                        activeTrackColor: primaryColor,
+                        onChanged: (val) => setState(() => _state.scissorsMotionActive = val),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Nuclear Cataract Density', style: TextStyle(fontSize: 11.5)),
+                                Text('${(_state.cataractDensity * 100).round()}%', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber.shade800)),
+                              ],
+                            ),
+                            Slider(
+                              value: _state.cataractDensity,
+                              min: 0.0,
+                              max: 1.0,
+                              divisions: 10,
+                              activeColor: Colors.amber.shade800,
+                              onChanged: (val) => setState(() => _state.cataractDensity = val),
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Corneal Opacity / Scar', style: TextStyle(fontSize: 11.5)),
+                                Text('${(_state.cornealOpacity * 100).round()}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                              ],
+                            ),
+                            Slider(
+                              value: _state.cornealOpacity,
+                              min: 0.0,
+                              max: 1.0,
+                              divisions: 10,
+                              activeColor: Colors.blueGrey,
+                              onChanged: (val) => setState(() => _state.cornealOpacity = val),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
 
-                const Divider(),
+                const Divider(height: 16),
 
+                // ── Section 3: Clinical Preferences ─────────────────────
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  padding: EdgeInsets.fromLTRB(16, 6, 16, 4),
                   child: Text(
-                    'OPTICAL PATHOLOGY & ABERRATIONS',
+                    'CLINICAL PREFERENCES',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey, letterSpacing: 0.5),
                   ),
                 ),
                 SwitchListTile(
-                  title: const Text('Mydriasis (Dilated Pupil)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Enlarges pupillary aperture for wide sweeps', style: TextStyle(fontSize: 11)),
-                  value: _state.pupilDilated,
-                  activeTrackColor: primaryColor, activeThumbColor: primaryColor,
-                  onChanged: (val) => _state.pupilDilated = val,
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  title: const Text('3D Viewport Parallax', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Accelerometer observation angle (Default: OFF)', style: TextStyle(fontSize: 11)),
+                  value: _state.accelerometerTiltEnabled,
+                  activeTrackColor: primaryColor,
+                  onChanged: (val) => setState(() => _state.accelerometerTiltEnabled = val),
                 ),
                 SwitchListTile(
-                  title: const Text('Scissors Aberration Motion', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Simulates keratoconus dual-blade motion', style: TextStyle(fontSize: 11)),
-                  value: _state.scissorsMotionActive,
-                  activeTrackColor: primaryColor, activeThumbColor: primaryColor,
-                  onChanged: (val) => _state.scissorsMotionActive = val,
-                ),
-
-                const Divider(),
-
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: Text(
-                    'PREFERENCES & AUDIO FEEDBACK',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey, letterSpacing: 0.5),
-                  ),
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  title: const Text('Live Neutrality Guidance', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Display real-time reflex motion badges', style: TextStyle(fontSize: 11)),
+                  value: _state.showLiveNeutralityFeedback,
+                  activeTrackColor: primaryColor,
+                  onChanged: (val) => setState(() => _state.showLiveNeutralityFeedback = val),
                 ),
                 SwitchListTile(
-                  title: const Text('Haptic Touch Sweeps', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Tactile vibration during streak sweeps', style: TextStyle(fontSize: 11)),
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  title: const Text('Haptic Sweeps & Sound Cues', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Tactile clicks and auditory feedback', style: TextStyle(fontSize: 11)),
                   value: _state.hapticsEnabled,
-                  activeTrackColor: primaryColor, activeThumbColor: primaryColor,
-                  onChanged: (val) => _state.hapticsEnabled = val,
-                ),
-                SwitchListTile(
-                  title: const Text('Clinical Sound Cues', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Auditory feedback for dials, neutrality & exams', style: TextStyle(fontSize: 11)),
-                  value: _state.soundEnabled,
-                  activeTrackColor: primaryColor, activeThumbColor: primaryColor,
+                  activeTrackColor: primaryColor,
                   onChanged: (val) {
-                    _state.soundEnabled = val;
-                    AudioService.soundEnabled = val;
-                    if (val) {
-                      AudioService.playTick();
-                    }
+                    setState(() {
+                      _state.hapticsEnabled = val;
+                      _state.soundEnabled = val;
+                      AudioService.soundEnabled = val;
+                    });
+                    if (val) HapticFeedback.selectionClick();
                   },
                 ),
                 SwitchListTile(
-                  title: const Text('Dark Mode', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('High-contrast dark clinical theme', style: TextStyle(fontSize: 11)),
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  title: const Text('Dark Room Examination Theme', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Super AMOLED high-contrast mode', style: TextStyle(fontSize: 11)),
                   value: _state.isDarkMode,
-                  activeTrackColor: primaryColor, activeThumbColor: primaryColor,
-                  onChanged: (val) => _state.isDarkMode = val,
+                  activeTrackColor: primaryColor,
+                  onChanged: (val) => setState(() => _state.isDarkMode = val),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: Wrap(
-                    spacing: 8,
-                    children: ['Blue', 'Green', 'Cyan', 'Orange', 'Purple'].map((colorName) {
-                      Color color = Colors.blue;
-                      if (colorName == 'Green') color = Colors.green;
-                      if (colorName == 'Cyan') color = Colors.cyan;
-                      if (colorName == 'Orange') color = Colors.orange;
-                      if (colorName == 'Purple') color = Colors.deepPurple;
-
-                      bool selected = _state.selectedThemeColor == colorName;
-
-                      return ChoiceChip(
-                        label: Text(colorName),
-                        selected: selected,
-                        selectedColor: color,
-                        labelStyle: TextStyle(
-                          color: selected ? Colors.white : Colors.black87,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _state.sphereStep = _state.sphereStep == 0.25 ? 0.50 : 0.25;
+                              _state.cylinderStep = _state.sphereStep;
+                            });
+                          },
+                          child: Text(
+                            'Lens Step: ${_state.sphereStep.toStringAsFixed(2)} D',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                          ),
                         ),
-                        onSelected: (val) {
-                          if (val) {
-                            _state.selectedThemeColor = colorName;
-                          }
-                        },
-                      );
-                    }).toList(),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _state.axisStep = _state.axisStep == 1.0 ? 5.0 : 1.0;
+                            });
+                          },
+                          child: Text(
+                            'Axis Step: ${_state.axisStep.toInt()}°',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
+
+                const Divider(height: 16),
+
+                // ── Section 4: Clinical Account & Registry ──────────────
+                ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  leading: Icon(
+                    CloudSyncService.isAuthenticated ? Icons.account_circle_rounded : Icons.account_circle_outlined,
+                    color: CloudSyncService.isAuthenticated ? Colors.green : Colors.blueGrey,
+                  ),
+                  title: Text(
+                    CloudSyncService.isAuthenticated
+                        ? 'Account: ${CloudSyncService.userEmail ?? "Registered"}'
+                        : 'Clinical Registry & Account',
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  subtitle: Text(
+                    CloudSyncService.isAuthenticated
+                        ? 'Cloud sync active • Tap to Sign Out'
+                        : 'Operating in Guest Mode • Tap to Sign In',
+                    style: const TextStyle(fontSize: 10.5),
+                  ),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () {
+                    Navigator.pop(context);
+                    if (CloudSyncService.isAuthenticated) {
+                      _showSignOutDialog(context);
+                    } else {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+                    }
+                  },
+                ),
+
+                // ── Section 5: Compliance, Privacy & About ──────────────
+                ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  leading: const Icon(Icons.alarm_rounded, color: Colors.indigo),
+                  title: const Text('Daily Case Study Reminder', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  subtitle: Text(NotificationService.getReminderTimeString(), style: const TextStyle(fontSize: 10.5)),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () => _showDailyReminderTimePicker(context),
+                ),
+                ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  leading: const Icon(Icons.security_rounded, color: Colors.teal),
+                  title: const Text('Offline Privacy & Security', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () => _showOfflinePrivacyDialog(context),
+                ),
+                ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  leading: const Icon(Icons.verified_user_rounded, color: Colors.blueGrey),
+                  title: const Text('Compliance & Medical Standards', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showMedicalComplianceDialog(context);
+                  },
+                ),
+                ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  leading: const Icon(Icons.star_rate_rounded, color: Colors.amber),
+                  title: const Text('Rate & Review', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showRateAppDialog(context);
+                  },
+                ),
+                ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  leading: const Icon(Icons.info_outline_rounded, color: Colors.blueGrey),
+                  title: const Text('About Retinoscopy Simulator', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  subtitle: const Text('v2.0.0 (Build 36) • Elite Edition', style: TextStyle(fontSize: 10.5)),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutScreen()));
+                  },
+                ),
+                const SizedBox(height: 12),
               ],
             ),
           ),
@@ -2301,7 +3251,24 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
         return Colors.deepPurple;
       case 'Blue':
       default:
-        return Colors.blue;
+        return const Color(0xFF1565C0);
+    }
+  }
+
+  Color _getEquippedStreakColor() {
+    final equipped = StorageService.getEquippedCosmetic();
+    switch (equipped) {
+      case 'Neon Green':
+        return Colors.greenAccent;
+      case 'Cyan Glow':
+        return Colors.cyanAccent;
+      case 'Amethyst Purple':
+        return Colors.purpleAccent;
+      case 'Laser Red':
+        return Colors.redAccent;
+      case 'Default Orange':
+      default:
+        return Colors.deepOrangeAccent;
     }
   }
 
@@ -2363,20 +3330,24 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
             // Method Selector
             const Text(
               'Refinement Method:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black54),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, ),
             ),
             const SizedBox(height: 4),
             Wrap(
               spacing: 8,
               children: ['Duochrome', 'JCC Axis', 'JCC Power'].map((method) {
+                final bool isDark = _state.isDarkMode || Theme.of(context).brightness == Brightness.dark;
                 bool selected = _state.activeSubjectiveTest == method;
                 return ChoiceChip(
                   label: Text(method),
                   selected: selected,
-                  selectedColor: Colors.purple[100],
-                  checkmarkColor: Colors.purple,
+                  selectedColor: isDark ? Colors.purple.shade900 : Colors.purple[100],
+                  checkmarkColor: isDark ? Colors.purple.shade200 : Colors.purple,
+                  backgroundColor: isDark ? const Color(0xFF1E293B) : null,
                   labelStyle: TextStyle(
-                    color: selected ? Colors.purple[900] : Colors.black87,
+                    color: selected
+                        ? (isDark ? Colors.purple.shade100 : Colors.purple[900])
+                        : (isDark ? Colors.white70 : Colors.black87),
                     fontWeight: FontWeight.bold,
                   ),
                   onSelected: (val) {
@@ -2456,7 +3427,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
             const SizedBox(height: 4),
             Text(
               _getSubjectiveGuideText(),
-              style: const TextStyle(fontSize: 12, color: Colors.black54, height: 1.4),
+              style: const TextStyle(fontSize: 12,  height: 1.4),
             ),
           ],
         ),
@@ -2645,7 +3616,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                       ),
                       child: Text(
                         slide['desc'] as String,
-                        style: const TextStyle(fontSize: 13, height: 1.45, color: Colors.black87),
+                        style: const TextStyle(fontSize: 13, height: 1.45, ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -2661,7 +3632,11 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                           width: isActive ? 18 : 6,
                           height: 6,
                           decoration: BoxDecoration(
-                            color: isActive ? (slide['color'] as Color) : Colors.grey[300],
+                            color: isActive
+                                ? (slide['color'] as Color)
+                                : (Theme.of(dialogCtx).brightness == Brightness.dark
+                                    ? Colors.white24
+                                    : Colors.grey[300]),
                             borderRadius: BorderRadius.circular(3),
                           ),
                         );
@@ -2745,5 +3720,246 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
       return 'Compound Myopic Astigmatism ($axisType)';
     }
     return 'Mixed Astigmatism ($axisType)';
+  }
+
+  // ─── Play Store Release & Medical Compliance Dialogs ──────────────────────
+
+  void _showDailyReminderTimePicker(BuildContext context) async {
+    final int currentHour = StorageService.getReminderHour();
+    final int currentMinute = StorageService.getReminderMinute();
+
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: currentHour, minute: currentMinute),
+      helpText: 'SET DAILY CLINICAL CASE REMINDER TIME',
+    );
+
+    if (picked != null) {
+      await NotificationService.setReminderTime(picked.hour, picked.minute);
+      if (!context.mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Daily clinical case reminder set for ${NotificationService.getReminderTimeString()}'),
+          backgroundColor: Colors.indigo,
+        ),
+      );
+    }
+  }
+
+  void _showMedicalComplianceDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.verified_user, color: Colors.orange, size: 22),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Medical Compliance Notice',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'CLINICAL EDUCATION & SIMULATION STANDARD',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
+              ),
+              SizedBox(height: 8),
+              Text(
+                '• This software suite is an academic and clinical simulation tool engineered in compliance with American Academy of Ophthalmology (AAO BCSC Section 3) visual optics principles.\n\n'
+                '• It is intended strictly for optometry residents, ophthalmology fellows, vision scientists, and ophthalmic technicians.\n\n'
+                '• NOT FOR DIRECT HUMAN DIAGNOSIS: This application is not a CE-marked or FDA 510(k)-cleared primary diagnostic device and must not replace direct slit-lamp examination, cycloplegic refraction, or clinical retinoscopy performed by a licensed eye care professional.\n\n'
+                '• MATHEMATICAL PRECISION: All vergence equations, Thibos Fourier power vectors, and Zernike wavefront polynomials are verified using standard visual optics literature.',
+                style: TextStyle(fontSize: 12.5, height: 1.45),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('I Understand', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showOfflinePrivacyDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.shield_outlined, color: Colors.green, size: 22),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Offline Privacy & Security',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'ZERO TRACKING • GDPR COMPLIANT',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
+              ),
+              SizedBox(height: 8),
+              Text(
+                '• 100% Offline-First Architecture: All clinical profiles, exam certificates, and refraction history are stored locally on your device.\n\n'
+                '• Zero Personal Data Collection: No telemetric analytics, advertising trackers, or external servers are queried.\n\n'
+                '• Clear Data Compliance: You can permanently delete all local patient profiles and exam scores at any time via Settings.',
+                style: TextStyle(fontSize: 12.5, height: 1.45),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRateAppDialog(BuildContext context) {
+    int selectedRating = 5;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.star, color: Colors.amber, size: 22),
+              ),
+              const SizedBox(width: 10),
+              const Text('Rate & Review', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Enjoying Retinoscopy Simulator? Your rating helps us bring more optical tools to students and clinicians worldwide!',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  return IconButton(
+                    icon: Icon(
+                      index < selectedRating ? Icons.star : Icons.star_border,
+                      color: Colors.amber,
+                      size: 32,
+                    ),
+                    onPressed: () => setDialogState(() => selectedRating = index + 1),
+                  );
+                }),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Later', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber.shade800,
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.open_in_new, size: 16),
+              label: const Text('Submit on Play Store'),
+              onPressed: () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Thank you for supporting ophthalmic education!')),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSignOutDialog(BuildContext ctxParam) {
+    showDialog(
+      context: ctxParam,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.logout_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Sign Out', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Do you want to sign out of your clinical registry account and continue in offline guest mode?',
+          style: TextStyle(fontSize: 13.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700, foregroundColor: Colors.white),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await CloudSyncService.signOut();
+              await StorageService.setGuestMode(true);
+              if (mounted) {
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Switched to Offline Clinical Guest Mode.')),
+                );
+              }
+            },
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
   }
 }

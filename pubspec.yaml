@@ -23,6 +23,12 @@ dependencies:
   intl: ^0.20.3
   qr: ^3.0.2
   audioplayers: ^6.1.0
+  sensors_plus: ^7.1.0
+  firebase_core: ^4.14.0
+  firebase_auth: ^6.6.1
+  cloud_firestore: ^6.9.0
+  firebase_analytics: ^12.5.0
+  firebase_crashlytics: ^5.3.0
 
 dev_dependencies:
   flutter_test:

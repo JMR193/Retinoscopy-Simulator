@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108"
+    android:tint="@android:color/white">
+
+    <!-- Outer Circular Rim (Matching app_icon.jpg circular emblem) -->
+    <path
+        android:strokeWidth="2.5"
+        android:strokeColor="@android:color/white"
+        android:fillColor="#00000000"
+        android:pathData="M 54,12 A 42,42 0 1 1 53.99,12 Z" />
+
+    <!-- Stylized Eye Outer Contour (Upper & Lower Eyelids) -->
+    <path
+        android:strokeWidth="4"
+        android:strokeColor="@android:color/white"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M 27,51 C 35,36 44,28 54,28 C 64,28 73,36 81,51 C 73,66 64,74 54,74 C 44,74 35,66 27,51 Z" />
+
+    <!-- Central Iris / Pupil Circle -->
+    <path
+        android:strokeWidth="3.2"
+        android:strokeColor="@android:color/white"
+        android:fillColor="#00000000"
+        android:pathData="M 54,38 A 13,13 0 1 1 53.99,38 Z" />
+
+    <!-- Corneal Reflection Highlight Dot (10 o'clock inside pupil) -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M 48,45 A 3.2,3.2 0 1 1 47.99,45 Z" />
+
+    <!-- Angled Retinoscope Streak Light Beam (Matching ~68° angle in app_icon.jpg) -->
+    <!-- Tapered diamond streak passing through the pupil -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M 68,16 L 57,48 L 52,57 L 44,84 L 46,84 L 54,55 L 59,46 L 68,16 Z" />
+
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M 67.5,17 C 67.5,17 58,45 56,51 C 54,57 44.5,83 44.5,83 C 44.5,83 52,59 55,52 C 58,45 67.5,17 67.5,17 Z" />
+
+    <!-- Central Core Slit Highlight -->
+    <path
+        android:strokeWidth="1.5"
+        android:strokeColor="@android:color/white"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M 66,21 L 46,80" />
+
+    <!-- Subtle Optical Meridian Ticks -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M 53,13 L 55,13 L 55,16 L 53,16 Z" />
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M 53,92 L 55,92 L 55,95 L 53,95 Z" />
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M 13,53 L 16,53 L 16,55 L 13,55 Z" />
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M 92,53 L 95,53 L 95,55 L 92,55 Z" />
+
+</vector>

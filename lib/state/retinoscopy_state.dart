@@ -17,12 +17,26 @@ class RetinoscopyState extends ChangeNotifier {
     _activeSubjectiveTest = val;
     notifyListeners();
   }
+  void setActiveSubjectiveTest(String val) {
+    _activeSubjectiveTest = val;
+    notifyListeners();
+  }
 
   int _jccFlipState = 1; // 1 or 2
   int get jccFlipState => _jccFlipState;
   set jccFlipState(int val) {
     _jccFlipState = val;
     notifyListeners();
+  }
+  void flipJcc() {
+    _jccFlipState = _jccFlipState == 1 ? 2 : 1;
+    notifyListeners();
+  }
+
+  String get workingDistanceFormatted {
+    if (_workingDistance <= 0) return '0.00 D';
+    int cm = (100 / _workingDistance).round();
+    return '${_workingDistance.toStringAsFixed(2)} D ($cm cm)';
   }
 
   // Defocus blur level based on total error between Patient Rx and Trial Lenses
@@ -63,10 +77,11 @@ class RetinoscopyState extends ChangeNotifier {
 
     if (activeSubjectiveTest == 'Duochrome') {
       double sphereError = ps - netTs;
-      // Duochrome rule: Red clearer if undercorrected myope or overcorrected hyperope (sphereError > 0)
-      if (sphereError > 0.12) {
+      // Duochrome rule: Red clearer if undercorrected myope or overcorrected hyperope (sphereError < -0.12)
+      // Green clearer if overcorrected myope or undercorrected hyperope (sphereError > 0.12)
+      if (sphereError < -0.12) {
         return "The letters on the RED background are much sharper and blacker.";
-      } else if (sphereError < -0.12) {
+      } else if (sphereError > 0.12) {
         return "The letters on the GREEN background are clearer and stand out more.";
       } else {
         return "Both the red and green sides look equally clear and balanced.";
@@ -113,7 +128,48 @@ class RetinoscopyState extends ChangeNotifier {
     }
   }
 
+
   // --- Settings ---
+  bool _accelerometerTiltEnabled = false; // Default OFF for rock-solid clinical sweeps
+  bool get accelerometerTiltEnabled => _accelerometerTiltEnabled;
+  set accelerometerTiltEnabled(bool val) {
+    _accelerometerTiltEnabled = val;
+    StorageService.setAccelerometerTiltEnabled(val);
+    notifyListeners();
+  }
+
+  double _sphereStep = 0.25;
+  double get sphereStep => _sphereStep;
+  set sphereStep(double val) {
+    _sphereStep = val;
+    StorageService.setSphereStep(val);
+    notifyListeners();
+  }
+
+  double _cylinderStep = 0.25;
+  double get cylinderStep => _cylinderStep;
+  set cylinderStep(double val) {
+    _cylinderStep = val;
+    StorageService.setCylinderStep(val);
+    notifyListeners();
+  }
+
+  double _axisStep = 5.0;
+  double get axisStep => _axisStep;
+  set axisStep(double val) {
+    _axisStep = val;
+    StorageService.setAxisStep(val);
+    notifyListeners();
+  }
+
+  bool _showLiveNeutralityFeedback = true;
+  bool get showLiveNeutralityFeedback => _showLiveNeutralityFeedback;
+  set showLiveNeutralityFeedback(bool val) {
+    _showLiveNeutralityFeedback = val;
+    StorageService.setShowLiveNeutralityFeedback(val);
+    notifyListeners();
+  }
+
   bool _hapticsEnabled = true;
   bool get hapticsEnabled => _hapticsEnabled;
   set hapticsEnabled(bool val) {
@@ -617,45 +673,43 @@ class RetinoscopyState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Helper function to calculate angle difference matching CSS/JS
-  double _calculateAngleDiff(double a, double b) {
-    double diff = a - b;
-    if (diff < 0) {
-      diff = 180 + diff;
-    }
-    if (diff > 90) {
-      diff = 180 - diff;
+  /// Returns the smallest angular difference between two optical axes modulo 180° (0° to 90° range)
+  static double calculateAxisDifference(double axis1, double axis2) {
+    double diff = (axis1 - axis2).abs() % 180.0;
+    if (diff > 90.0) {
+      diff = 180.0 - diff;
     }
     return diff;
   }
 
   // --- Outputs ---
 
-  // Reflex Width
+  /// Physical Reflex Width based on exact Sturm trigonometric projection along swept meridian
   double get reflexWidth {
-    double ps = _patientSphere;
-    double pc = _patientCylinder;
-    double pa = _patientAngle;
-    double wd = _workingDistance;
+    // Retinoscope streak is oriented at _streakAngle. The beam sweeps along orthogonal meridian (streakAngle + 90) % 180.
+    final double sweepMeridian = (_streakAngle + 90.0) % 180.0;
+    final double sweepRad = sweepMeridian * pi / 180.0;
 
-    double s = _plusLensesSelected ? _plusSphere : _minusSphere;
-    double c = _plusLensesSelected ? _plusCylinder : _minusCylinder;
-    double axis = _plusLensesSelected ? _plusAxis : _minusAxis;
+    // Patient power along the swept meridian (Euler's / Sturm's formula)
+    final double patientAxisRad = _patientAngle * pi / 180.0;
+    final double patientMeridianPower = _patientSphere + _patientCylinder * pow(sin(sweepRad - patientAxisRad), 2);
 
-    double pala = _calculateAngleDiff(pa, _streakAngle);
-    double tala = _calculateAngleDiff(axis, _streakAngle);
+    // Trial lens power along the swept meridian
+    final double ts = _plusLensesSelected ? _plusSphere : _minusSphere;
+    final double tc = _plusLensesSelected ? _plusCylinder : _minusCylinder;
+    final double ta = _plusLensesSelected ? _plusAxis : _minusAxis;
+    final double trialAxisRad = ta * pi / 180.0;
+    final double trialMeridianPower = ts + tc * pow(sin(sweepRad - trialAxisRad), 2);
 
-    double rw;
-    if (_plusLensesSelected) {
-      // Plus Mode equation
-      rw = ((ps - s) * -2.0) - (wd * 2.0) + ((pala - tala) / 45.0) * pc + (c - pc) * (2.0 - tala / 45.0);
-    } else {
-      // Minus Mode equation
-      rw = ((ps - s) * -2.0) - (wd * 2.0) + ((pala - tala) / 45.0) * pc + (c - pc) * (2.0 - tala / 45.0);
-    }
+    // Net unneutralized vergence error at examiner working distance (in Diopters)
+    // Trial lens gross neutralizer required = patientMeridianPower + workingDistance
+    final double netDiopters = patientMeridianPower - (trialMeridianPower - _workingDistance);
+
+    // Convert net dioptric error to physical reflex width offset multiplier (-2.0 scaling for with/against displacement)
+    double rw = netDiopters * -2.0;
 
     if (_sleeveUp) {
-      rw = -rw;
+      rw = -rw; // Concave mirror reverses motion
     }
 
     // Multiply by pixel multiplier
@@ -732,45 +786,28 @@ class RetinoscopyState extends ChangeNotifier {
 
   /// Net spherical-equivalent unneutralized vergence error along swept meridian (in Diopters)
   double get netVergenceError {
-    double sweepMeridian = (_streakAngle + 90.0) % 180.0;
-    double sweepRad = sweepMeridian * pi / 180.0;
-
-    // Patient power along swept meridian (Euler's Formula: F = S + C * sin^2(alpha - theta))
-    double patientAxisRad = _patientAngle * pi / 180.0;
-    double patientPower = _patientSphere + _patientCylinder * pow(sin(sweepRad - patientAxisRad), 2);
-
-    // Trial lens power along swept meridian
-    double ts = _plusLensesSelected ? _plusSphere : _minusSphere;
-    double tc = _plusLensesSelected ? _plusCylinder : _minusCylinder;
-    double ta = _plusLensesSelected ? _plusAxis : _minusAxis;
-    double trialAxisRad = ta * pi / 180.0;
-    double trialPower = ts + tc * pow(sin(sweepRad - trialAxisRad), 2);
-
-    // Net vergence at peephole = Patient + Trial - WorkingDistanceOffset
-    double netD = patientPower + trialPower - _workingDistance;
-    return _sleeveUp ? -netD : netD;
+    return reflexWidth / 60.0;
   }
 
-  /// Apparent reflex sweep velocity multiplier (inversely proportional to vergence error)
+  /// Apparent reflex sweep velocity multiplier (continuous hyperbolic function, accelerates asymptotically at neutrality)
   double get reflexVelocityFactor {
     double err = netVergenceError.abs();
-    if (err < 0.25) {
-      return 3.5; // Very fast, rushing reflex near neutrality
-    } else if (err < 0.75) {
-      return 2.2;
-    } else if (err < 1.50) {
-      return 1.4;
-    } else {
-      return 0.75; // Sluggish motion far from neutrality
-    }
+    // Continuous inverse relation: v = 1 / (0.12 + 0.38 * err)
+    return (1.0 / (0.12 + err * 0.38)).clamp(0.60, 4.80);
   }
 
-  /// Relative reflex luminance / brightness (peaks at neutrality)
+  /// Relative reflex luminance / brightness (peaks at neutrality with golden incandescence)
   double get reflexIlluminance {
     double err = netVergenceError.abs();
-    double base = 1.0 / (1.0 + err * 0.85);
-    double dimming = (1.0 - (_cataractDensity * 0.75)) * (1.0 - (_cornealOpacity * 0.6));
-    return (base * dimming).clamp(0.15, 1.0);
+    double base = 1.0 / (1.0 + err * 0.70);
+    double dimming = (1.0 - (_cataractDensity * 0.75)) * (1.0 - (_cornealOpacity * 0.60));
+    return (base * dimming).clamp(0.18, 1.0);
+  }
+
+  /// Proportion of pupillary aperture filled by reflex (0.15 = thin slit, 1.0 = 100% full aperture flood flash)
+  double get pupilFillRatio {
+    double err = netVergenceError.abs();
+    return (1.0 / (1.0 + err * 0.85)).clamp(0.12, 1.0);
   }
 
   // --- Thibos Fourier Power Vector Calculations ---
@@ -805,6 +842,85 @@ class RetinoscopyState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Calculates the reflex thickness for Copeland straddle (direction: -1 for -45°, +1 for +45°)
+  double calculateStraddleWidth(int direction) {
+    double testAngle = direction >= 0
+        ? ((_streakAngle + 45.0) > 180.0 ? _streakAngle - 135.0 : _streakAngle + 45.0)
+        : ((_streakAngle - 45.0) <= 0.0 ? _streakAngle + 135.0 : _streakAngle - 45.0);
+
+    double sweepMeridian = (testAngle + 90.0) % 180.0;
+    double sweepRad = sweepMeridian * pi / 180.0;
+    double patientAxisRad = _patientAngle * pi / 180.0;
+    double patientPower = _patientSphere + _patientCylinder * pow(sin(sweepRad - patientAxisRad), 2);
+
+    double ts = _plusLensesSelected ? _plusSphere : _minusSphere;
+    double tc = _plusLensesSelected ? _plusCylinder : _minusCylinder;
+    double ta = _plusLensesSelected ? _plusAxis : _minusAxis;
+    double trialAxisRad = ta * pi / 180.0;
+    double trialPower = ts + tc * pow(sin(sweepRad - trialAxisRad), 2);
+
+    double netD = (patientPower + trialPower - _workingDistance).abs();
+    return (1.0 / (1.0 + netD * 0.85)) * 30.0;
+  }
+
+  /// Calculates the reflex brilliance/luminance for Copeland straddle
+  double calculateStraddleLuminance(int direction) {
+    double testAngle = direction >= 0
+        ? ((_streakAngle + 45.0) > 180.0 ? _streakAngle - 135.0 : _streakAngle + 45.0)
+        : ((_streakAngle - 45.0) <= 0.0 ? _streakAngle + 135.0 : _streakAngle - 45.0);
+
+    double sweepMeridian = (testAngle + 90.0) % 180.0;
+    double sweepRad = sweepMeridian * pi / 180.0;
+    double patientAxisRad = _patientAngle * pi / 180.0;
+    double patientPower = _patientSphere + _patientCylinder * pow(sin(sweepRad - patientAxisRad), 2);
+
+    double ts = _plusLensesSelected ? _plusSphere : _minusSphere;
+    double tc = _plusLensesSelected ? _plusCylinder : _minusCylinder;
+    double ta = _plusLensesSelected ? _plusAxis : _minusAxis;
+    double trialAxisRad = ta * pi / 180.0;
+    double trialPower = ts + tc * pow(sin(sweepRad - trialAxisRad), 2);
+
+    double netD = (patientPower + trialPower - _workingDistance).abs();
+    return (1.0 / (1.0 + netD * 0.70)).clamp(0.20, 1.0);
+  }
+
+  /// Absolute difference in reflex thickness between the two straddle orientations
+  double get straddleWidthDelta {
+    double ta = _plusLensesSelected ? _plusAxis : _minusAxis;
+    double axisDiff = (ta - _patientAngle).abs() % 180.0;
+    if (axisDiff > 90.0) axisDiff = 180.0 - axisDiff;
+    if (_patientCylinder.abs() < 0.25) return 0.0;
+    return (axisDiff / 90.0) * (_patientCylinder.abs() / 2.0) * 8.0;
+  }
+
+  /// Returns true if Copeland straddle is in equilibrium (cylinder axis verified)
+  bool get isStraddleEquilibrium {
+    if (_patientCylinder.abs() < 0.25) return true;
+    double ta = _plusLensesSelected ? _plusAxis : _minusAxis;
+    double axisDiff = (ta - _patientAngle).abs() % 180.0;
+    if (axisDiff > 90.0) axisDiff = 180.0 - axisDiff;
+    return axisDiff <= 2.5;
+  }
+
+  /// Clinical rule advice for Copeland Straddle
+  String get straddleClinicalAdvice {
+    if (_patientCylinder.abs() < 0.25) {
+      return 'Spherical error present — straddling shows uniform symmetry in all directions.';
+    }
+    double ta = _plusLensesSelected ? _plusAxis : _minusAxis;
+    double diff = (_patientAngle - ta) % 180.0;
+    if (diff > 90.0) diff -= 180.0;
+    if (diff < -90.0) diff += 180.0;
+
+    if (diff.abs() <= 2.5) {
+      return '🎯 Equilibrium Achieved! Both +45° and -45° straddle orientations show identical reflex brilliance and thickness. Cylinder axis is 100% accurate.';
+    } else if (diff > 0) {
+      return 'Rotate cylinder axis clockwise (toward +45° straddle meridian) — it is brighter and narrower.';
+    } else {
+      return 'Rotate cylinder axis counter-clockwise (toward -45° straddle meridian) — it is brighter and narrower.';
+    }
+  }
+
   /// Break Phenomenon angular displacement between external streak and internal reflex (degrees)
   double get breakDisplacementAngle {
     if (_patientCylinder == 0.0) {
@@ -814,11 +930,221 @@ class RetinoscopyState extends ChangeNotifier {
     if (diff > 90.0) {
       diff = 180.0 - diff;
     }
-    return diff * (_patientCylinder.abs() / 4.0).clamp(0.0, 1.0);
+    return diff * (_patientCylinder.abs() / 3.5).clamp(0.0, 1.0);
   }
 
   /// Returns true if break phenomenon is visible (misaligned astigmatic meridian)
-  bool get isBreakPhenomenonActive => _patientCylinder.abs() >= 0.50 && breakDisplacementAngle.abs() > 5.0;
+  bool get isBreakPhenomenonActive => _patientCylinder.abs() >= 0.50 && breakDisplacementAngle.abs() > 4.0;
+
+  /// Skew Phenomenon lateral shear displacement factor (sliding off the sweep axis)
+  double get skewShearFactor {
+    if (_patientCylinder.abs() < 0.50) return 0.0;
+    double diffRad = (_streakAngle - _patientAngle) * pi / 180.0;
+    return sin(2.0 * diffRad) * (_patientCylinder.abs() / 4.0).clamp(0.0, 1.0);
+  }
+
+  // --- Clinical Protocol Guidance State Machine ---
+  ClinicalProtocolMode _activeProtocol = ClinicalProtocolMode.none;
+  ClinicalProtocolMode get activeProtocol => _activeProtocol;
+  void setProtocol(ClinicalProtocolMode mode) {
+    _activeProtocol = mode;
+    _protocolStep = 1;
+    if (mode == ClinicalProtocolMode.mohindraPediatric) {
+      _isMohindraMode = true;
+      _workingDistance = 2.00; // 50 cm dark room distance (+2.00 D)
+    } else {
+      _isMohindraMode = false;
+    }
+    notifyListeners();
+  }
+
+  int _protocolStep = 1;
+  int get protocolStep => _protocolStep;
+  void setProtocolStep(int step) {
+    _protocolStep = step.clamp(1, 5);
+    notifyListeners();
+  }
+
+  void nextProtocolStep() {
+    if (_protocolStep < 5) {
+      _protocolStep++;
+      notifyListeners();
+    }
+  }
+
+  void prevProtocolStep() {
+    if (_protocolStep > 1) {
+      _protocolStep--;
+      notifyListeners();
+    }
+  }
+
+  String get protocolStepTitle {
+    switch (_activeProtocol) {
+      case ClinicalProtocolMode.aaoPlusCyl:
+        switch (_protocolStep) {
+          case 1: return 'Step 1: Set Working Distance & Identify 1st Principal Meridian';
+          case 2: return 'Step 2: Sweep 90° & 180° — Isolate Astigmatic Axis';
+          case 3: return 'Step 3: Neutralize Meridian with Least WITH Motion';
+          case 4: return 'Step 4: Rotate 90° & Neutralize with Plus Cylinder';
+          case 5: return 'Step 5: Refine Axis via Copeland Straddle & Deduct WD for Net Refraction';
+          default: return 'AAO Plus-Cylinder Protocol';
+        }
+      case ClinicalProtocolMode.optometryMinusCyl:
+        switch (_protocolStep) {
+          case 1: return 'Step 1: Set Working Distance & Identify 1st Principal Meridian';
+          case 2: return 'Step 2: Sweep 90° & 180° — Isolate Astigmatic Axis';
+          case 3: return 'Step 3: Neutralize Meridian with Most WITH Motion';
+          case 4: return 'Step 4: Rotate 90° & Neutralize with Minus Cylinder';
+          case 5: return 'Step 5: Refine Axis via Copeland Straddle & Deduct WD for Net Refraction';
+          default: return 'Optometry Minus-Cylinder Protocol';
+        }
+      case ClinicalProtocolMode.mohindraPediatric:
+        switch (_protocolStep) {
+          case 1: return 'Step 1: Extinguish Ambient Lights (Complete Darkness)';
+          case 2: return 'Step 2: Position at Exactly 50 cm (+2.00 D)';
+          case 3: return 'Step 3: Patient Fixates on Retinoscope Filament Bulb';
+          case 4: return 'Step 4: Neutralize Principal Meridians';
+          case 5: return 'Step 5: Deduct Tonus Correction Factor (-1.25 D) for Net Refraction';
+          default: return 'Mohindra Pediatric Protocol';
+        }
+      case ClinicalProtocolMode.memDynamic:
+        switch (_protocolStep) {
+          case 1: return 'Step 1: Attach MEM Reading Card at 40 cm (+2.50 D Demand)';
+          case 2: return 'Step 2: Binocular Fixation on Words or Letters';
+          case 3: return 'Step 3: Rapid Sweep Across Horizontal Meridian (< 0.5s)';
+          case 4: return 'Step 4: Introduce Loose Plus Lenses to Neutralize Lag';
+          case 5: return 'Step 5: Record Normal Accommodative Lag (+0.50 to +0.75 D)';
+          default: return 'MEM Dynamic Retinoscopy';
+        }
+      case ClinicalProtocolMode.none:
+        return 'Standard Exploration';
+    }
+  }
+
+  /// JCC Power adjustment with automatic 1:2 spherical equivalent compensation
+  void adjustJccCylinderWithSphericalEquivalence(double deltaCyl) {
+    if (_plusLensesSelected) {
+      _plusCylinder += deltaCyl;
+      _plusSphere -= (deltaCyl / 2.0);
+    } else {
+      _minusCylinder += deltaCyl;
+      _minusSphere -= (deltaCyl / 2.0);
+    }
+    notifyListeners();
+  }
+
+  /// Calculates estimated Corneal Astigmatism via Javal's Rule from Keratometry
+  /// Javal's Rule: Total Astigmatism = 1.25 * (K2 - K1) + (-0.50 D ATR internal lenticular astigmatism)
+  static Map<String, dynamic> calculateJavalsRule({
+    required double k1Diopters,
+    required double k2Diopters,
+    required double k1Axis,
+  }) {
+    double cornealDeltaK = k2Diopters - k1Diopters;
+    double totalEstAstigmatism = 1.25 * cornealDeltaK - 0.50;
+    return {
+      'cornealDeltaK': cornealDeltaK,
+      'estimatedAstigmatism': totalEstAstigmatism,
+      'astigmatismType': cornealDeltaK > 0 ? 'With-The-Rule (WTR)' : cornealDeltaK < 0 ? 'Against-The-Rule (ATR)' : 'Spherical Cornea',
+    };
+  }
+
+  /// Calculates Retinoscopy Net Prescription from Dual Meridian Gross Powers
+  static Map<String, dynamic> calculateRetinoscopyAnswer({
+    required double grossM1Power,
+    required double grossM1Axis,
+    required double grossM2Power,
+    required double workingDistance,
+  }) {
+    final double netM1 = grossM1Power - workingDistance;
+    final double netM2 = grossM2Power - workingDistance;
+
+    final double grossM2Axis = (grossM1Axis + 90.0) > 180.0 ? grossM1Axis - 90.0 : grossM1Axis + 90.0;
+
+    final double plusSphere = netM2;
+    final double plusCylinder = netM1 - netM2;
+    final double plusAxis = grossM1Axis;
+
+    final double minusSphere = netM1;
+    final double minusCylinder = netM2 - netM1;
+    final double minusAxis = grossM2Axis;
+
+    final double sphericalEquivalent = (netM1 + netM2) / 2.0;
+
+    return {
+      'netM1': netM1,
+      'netM2': netM2,
+      'grossM1': grossM1Power,
+      'grossM2': grossM2Power,
+      'workingDistance': workingDistance,
+      'plusSphere': plusSphere,
+      'plusCylinder': plusCylinder,
+      'plusAxis': plusAxis,
+      'minusSphere': minusSphere,
+      'minusCylinder': minusCylinder,
+      'minusAxis': minusAxis,
+      'sphericalEquivalent': sphericalEquivalent,
+    };
+  }
+
+  String get protocolStepGuidance {
+    switch (_activeProtocol) {
+      case ClinicalProtocolMode.aaoPlusCyl:
+        switch (_protocolStep) {
+          case 1: return 'Position retinoscope at arm’s length (67 cm = +1.50 D). Ensure Working Distance offset is active in the simulator.';
+          case 2: return 'Rotate the retinoscope streak 360° to find the principal meridians where the reflex is sharpest, brightest, and collinear with the facial streak.';
+          case 3: return 'Align streak with the meridian exhibiting the least with-motion (or most against-motion). Dial Sphere power until neutral flash is achieved.';
+          case 4: return 'Rotate retinoscope streak exactly 90° to the orthogonal meridian. Dial PLUS Cylinder power until this second meridian is neutralized.';
+          case 5: return 'Straddle the streak ±45° to confirm equal brilliance/thickness. Finally, record Net Rx = Gross Neutralizing Lens − Working Distance.';
+          default: return '';
+        }
+      case ClinicalProtocolMode.optometryMinusCyl:
+        switch (_protocolStep) {
+          case 1: return 'Position retinoscope at arm’s length (67 cm = +1.50 D). Set Working Distance offset.';
+          case 2: return 'Rotate retinoscope streak 360° to isolate the principal meridians without break phenomenon.';
+          case 3: return 'Align streak with the meridian exhibiting the most with-motion (least minus/most plus). Dial Sphere power to achieve neutrality.';
+          case 4: return 'Rotate streak 90° into the against-motion meridian. Dial MINUS Cylinder power until neutrality is achieved.';
+          case 5: return 'Straddle the streak ±45° to confirm axis precision. Subtract Working Distance to obtain the final Net Prescription.';
+          default: return '';
+        }
+      case ClinicalProtocolMode.mohindraPediatric:
+        switch (_protocolStep) {
+          case 1: return 'Dark-room near retinoscopy is ideal for infants, uncooperative toddlers, or when cycloplegics cannot be administered.';
+          case 2: return 'Sit monocularly at exactly 50 cm. Simulator auto-configures Working Distance to 2.00 D.';
+          case 3: return 'Direct child’s gaze to the dim incandescent retinoscope bulb. This stimulates tonic accommodation in the dark.';
+          case 4: return 'Neutralize both principal meridians quickly with loose lenses or phoropter.';
+          case 5: return 'Because the resting state of accommodation in total darkness is ~0.75 D, subtract only -1.25 D (not -2.00 D) from the gross neutralization.';
+          default: return '';
+        }
+      case ClinicalProtocolMode.memDynamic:
+        switch (_protocolStep) {
+          case 1: return 'Monocular Estimate Method (MEM) assesses the accuracy of the patient’s accommodative response under binocular reading conditions.';
+          case 2: return 'Patient wears distance Rx and reads grade-level text on the retinoscope card at 40 cm (+2.50 D demand).';
+          case 3: return 'Quickly sweep horizontal meridian without letting the patient adapt to the neutralizing lens (< 0.5s).';
+          case 4: return 'Normal eyes exhibit a slight accommodative lag (mild with-motion, neutralized with +0.50 to +0.75 D).';
+          case 5: return 'Lag > +0.75 D indicates Accommodative Insufficiency. Against motion indicates Accommodative Excess / Lead.';
+          default: return '';
+        }
+      case ClinicalProtocolMode.none:
+        return 'Freely sweep the streak, dial lenses, and observe physical optics dynamics.';
+    }
+  }
+
+  // --- Dynamic Retinoscopy / MEM State ---
+  double _memTargetDistanceCm = 40.0;
+  double get memTargetDistanceCm => _memTargetDistanceCm;
+  set memTargetDistanceCm(double val) {
+    _memTargetDistanceCm = val;
+    notifyListeners();
+  }
+
+  double _accommodativeLag = 0.50; // Normal physiological lag (+0.50 D)
+  double get accommodativeLag => _accommodativeLag;
+  set accommodativeLag(double val) {
+    _accommodativeLag = val;
+    notifyListeners();
+  }
 
   // --- Pathology Simulation State ---
   double _cataractDensity = 0.0; // 0.0 (Clear) to 1.0 (Dense Nuclear Cataract)
@@ -862,6 +1188,40 @@ class RetinoscopyState extends ChangeNotifier {
     _beamPosition = 0.0;
     _pupilDilated = false;
     _scissorsMotionActive = false;
+    _cataractDensity = 0.0;
+    _cornealOpacity = 0.0;
+
+    notifyListeners();
+  }
+
+  void generateHardPatient() {
+    final random = Random();
+    
+    // High astigmatism or high sphere
+    int cylSign = random.nextBool() ? 1 : -1;
+    _patientCylinder = cylSign * ((random.nextInt(13) + 12) * 0.25); // +/- 3.0 to 6.0
+    
+    int sphereSteps = random.nextInt(161) - 80;
+    _patientSphere = sphereSteps * 0.25;
+    
+    _patientAngle = (random.nextInt(36) + 1) * 5.0;
+
+    // Reset controls
+    _plusSphere = 0.0;
+    _plusCylinder = 0.0;
+    _plusAxis = 90.0;
+    _minusSphere = 0.0;
+    _minusCylinder = 0.0;
+    _minusAxis = 90.0;
+    _workingDistance = 1.5;
+    _streakAngle = 90.0;
+    _beamPosition = 0.0;
+
+    // Hard Mode modifiers
+    _pupilDilated = random.nextBool();
+    _scissorsMotionActive = random.nextBool();
+    _cataractDensity = (random.nextInt(5) + 3) * 0.1; // 0.3 to 0.7
+    _cornealOpacity = random.nextBool() ? 0.3 : 0.0;
 
     notifyListeners();
   }
@@ -908,9 +1268,12 @@ class RetinoscopyState extends ChangeNotifier {
         // Pure spherical case: Axis has no optical significance
         return (s - refS).abs() < 0.13 && c.abs() < 0.13;
       }
+      final double axisDiff = calculateAxisDifference(a, refA);
+      final double axisTolerance = refC.abs() >= 0.50 ? 5.0 : 10.0;
+
       return (s - refS).abs() < 0.13 &&
              (c - refC).abs() < 0.13 &&
-             ((a - refA).abs() < 1.0 || (a - refA).abs() == 180.0);
+             axisDiff <= axisTolerance;
     }
 
     bool isStandardMatch = checkPair(userSphere1, userCylinder1, userAxis1, correctSphere1, correctCylinder1, correctAxis1) &&
@@ -921,4 +1284,13 @@ class RetinoscopyState extends ChangeNotifier {
 
     return isStandardMatch || isTransposedMatch;
   }
+}
+
+/// Clinical Retinoscopy Examination Protocols
+enum ClinicalProtocolMode {
+  none,
+  aaoPlusCyl,
+  optometryMinusCyl,
+  mohindraPediatric,
+  memDynamic,
 }

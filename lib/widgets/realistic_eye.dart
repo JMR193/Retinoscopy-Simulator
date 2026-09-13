@@ -1,5 +1,7 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 
 class RealisticEye extends StatefulWidget {
   final double beamPosition;
@@ -14,11 +16,14 @@ class RealisticEye extends StatefulWidget {
   final double cataractDensity;
   final double cornealOpacity;
   final double breakDisplacementAngle;
+  final double skewShearFactor;
   final double velocityFactor;
   final double illuminance;
+  final double pupilFillRatio;
 
   final double pupilApertureRatio;
   final double fundusLuminanceMultiplier;
+  final Color streakColor;
 
   const RealisticEye({
     super.key,
@@ -34,25 +39,41 @@ class RealisticEye extends StatefulWidget {
     this.cataractDensity = 0.0,
     this.cornealOpacity = 0.0,
     this.breakDisplacementAngle = 0.0,
+    this.skewShearFactor = 0.0,
     this.velocityFactor = 1.0,
     this.illuminance = 1.0,
+    this.pupilFillRatio = 0.35,
     this.pupilApertureRatio = 0.52,
     this.fundusLuminanceMultiplier = 1.0,
+    this.streakColor = Colors.deepOrangeAccent,
+    this.enableAccelerometerTilt = false,
   });
+
+  final bool enableAccelerometerTilt;
 
   @override
   State<RealisticEye> createState() => _RealisticEyeState();
 }
 
-class _RealisticEyeState extends State<RealisticEye> with TickerProviderStateMixin {
+class _RealisticEyeState extends State<RealisticEye> with TickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _pulseController;
   late AnimationController _smoothSweepController;
   double _currentRenderedBeam = 0.0;
 
+  StreamSubscription<AccelerometerEvent>? _accelSubscription;
+  double _tiltX = 0.0;
+  double _tiltY = 0.0;
+  bool _isAppActive = true;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _currentRenderedBeam = widget.beamPosition;
+
+    if (widget.enableAccelerometerTilt) {
+      _startSensors();
+    }
 
     // Physiological pupil oscillation (hippus)
     _pulseController = AnimationController(
@@ -60,7 +81,7 @@ class _RealisticEyeState extends State<RealisticEye> with TickerProviderStateMix
       duration: const Duration(seconds: 4),
     )..repeat(reverse: true);
 
-    // Continuous 60/120 FPS high-refresh physics interpolation for silky-smooth beam sweep
+    // Continuous physics interpolation for silky-smooth beam sweep
     _smoothSweepController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 16),
@@ -69,19 +90,83 @@ class _RealisticEyeState extends State<RealisticEye> with TickerProviderStateMix
     _smoothSweepController.repeat();
   }
 
+  @override
+  void didUpdateWidget(RealisticEye oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.enableAccelerometerTilt != oldWidget.enableAccelerometerTilt) {
+      if (widget.enableAccelerometerTilt) {
+        _startSensors();
+      } else {
+        _stopSensors();
+        if (_tiltX != 0.0 || _tiltY != 0.0) {
+          setState(() {
+            _tiltX = 0.0;
+            _tiltY = 0.0;
+          });
+        }
+      }
+    }
+  }
+
+  void _startSensors() {
+    _stopSensors();
+    if (!widget.enableAccelerometerTilt) return;
+    _accelSubscription = accelerometerEventStream().listen((AccelerometerEvent event) {
+      if (!mounted || !_isAppActive || !widget.enableAccelerometerTilt) return;
+      // Accelerometer X is left/right tilt, Y is up/down tilt.
+      final double targetTiltX = _tiltX + (event.x.clamp(-3.0, 3.0) - _tiltX) * 0.1;
+      final double targetTiltY = _tiltY + (event.y.clamp(-3.0, 3.0) - _tiltY) * 0.1;
+
+      // Throttle sensor updates: only trigger UI rebuild if angular change is clinically perceptible
+      if ((targetTiltX - _tiltX).abs() > 0.015 || (targetTiltY - _tiltY).abs() > 0.015) {
+        setState(() {
+          _tiltX = targetTiltX;
+          _tiltY = targetTiltY;
+        });
+      }
+    });
+  }
+
+  void _stopSensors() {
+    _accelSubscription?.cancel();
+    _accelSubscription = null;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _isAppActive = true;
+      _startSensors();
+      if (!_pulseController.isAnimating) _pulseController.repeat(reverse: true);
+      if (!_smoothSweepController.isAnimating) _smoothSweepController.repeat();
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
+      _isAppActive = false;
+      _stopSensors();
+      if (_pulseController.isAnimating) _pulseController.stop();
+      if (_smoothSweepController.isAnimating) _smoothSweepController.stop();
+    }
+  }
+
   void _updatePhysicsSmoothing() {
+    if (!mounted || !_isAppActive) return;
     final double target = widget.beamPosition;
     final double diff = target - _currentRenderedBeam;
-    if (diff.abs() > 0.01) {
+    if (diff.abs() > 0.005) {
       setState(() {
         // Smooth exponential damping for physical optical beam momentum
         _currentRenderedBeam += diff * 0.42;
+      });
+    } else if (_currentRenderedBeam != target) {
+      setState(() {
+        _currentRenderedBeam = target;
       });
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopSensors();
     _pulseController.dispose();
     _smoothSweepController.dispose();
     super.dispose();
@@ -92,9 +177,16 @@ class _RealisticEyeState extends State<RealisticEye> with TickerProviderStateMix
     return AnimatedBuilder(
       animation: _pulseController,
       builder: (context, child) {
-        return CustomPaint(
-          size: const Size(300, 300),
-          painter: EyePainter(
+        return Transform(
+          alignment: FractionalOffset.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.001) // perspective
+            ..rotateX(-_tiltY * 0.1) // tilt up/down (inverted)
+            ..rotateY(_tiltX * 0.1), // tilt left/right
+          child: CustomPaint(
+            size: const Size(300, 300),
+            painter: EyePainter(
+            streakColor: widget.streakColor,
             beamPosition: _currentRenderedBeam,
             streakAngle: widget.streakAngle,
             reflexWidth: widget.reflexWidth,
@@ -108,18 +200,21 @@ class _RealisticEyeState extends State<RealisticEye> with TickerProviderStateMix
             cataractDensity: widget.cataractDensity,
             cornealOpacity: widget.cornealOpacity,
             breakDisplacementAngle: widget.breakDisplacementAngle,
+            skewShearFactor: widget.skewShearFactor,
             velocityFactor: widget.velocityFactor,
             illuminance: widget.illuminance,
+            pupilFillRatio: widget.pupilFillRatio,
             pupilApertureRatio: widget.pupilApertureRatio,
             fundusLuminanceMultiplier: widget.fundusLuminanceMultiplier,
           ),
-        );
+        ));
       },
     );
   }
 }
 
 class EyePainter extends CustomPainter {
+  final Color streakColor;
   final double beamPosition;
   final double streakAngle;
   final double reflexWidth;
@@ -133,12 +228,15 @@ class EyePainter extends CustomPainter {
   final double cataractDensity;
   final double cornealOpacity;
   final double breakDisplacementAngle;
+  final double skewShearFactor;
   final double velocityFactor;
   final double illuminance;
+  final double pupilFillRatio;
   final double pupilApertureRatio;
   final double fundusLuminanceMultiplier;
 
   EyePainter({
+    required this.streakColor,
     required this.beamPosition,
     required this.streakAngle,
     required this.reflexWidth,
@@ -152,8 +250,10 @@ class EyePainter extends CustomPainter {
     this.cataractDensity = 0.0,
     this.cornealOpacity = 0.0,
     this.breakDisplacementAngle = 0.0,
+    this.skewShearFactor = 0.0,
     this.velocityFactor = 1.0,
     this.illuminance = 1.0,
+    this.pupilFillRatio = 0.35,
     this.pupilApertureRatio = 0.52,
     this.fundusLuminanceMultiplier = 1.0,
   });
@@ -189,6 +289,30 @@ class EyePainter extends CustomPainter {
       );
     }
 
+    // Outer Protractor Ticks (Subtle clinical degree ticks at 10° intervals)
+    final tickPaint = Paint()
+      ..color = const Color(0xFF64748B).withValues(alpha: 0.35)
+      ..strokeWidth = 1.0;
+    final cardinalTickPaint = Paint()
+      ..color = const Color(0xFF3B82F6).withValues(alpha: 0.65)
+      ..strokeWidth = 1.8;
+
+    for (int deg = 0; deg < 180; deg += 10) {
+      double rad = deg * math.pi / 180;
+      bool isCardinal = deg % 30 == 0;
+      double tickLen = isCardinal ? 8.0 : 4.0;
+      canvas.drawLine(
+        Offset(center.dx + (maxRadius - tickLen) * math.cos(rad), center.dy - (maxRadius - tickLen) * math.sin(rad)),
+        Offset(center.dx + maxRadius * math.cos(rad), center.dy - maxRadius * math.sin(rad)),
+        isCardinal ? cardinalTickPaint : tickPaint,
+      );
+      canvas.drawLine(
+        Offset(center.dx - (maxRadius - tickLen) * math.cos(rad), center.dy + (maxRadius - tickLen) * math.sin(rad)),
+        Offset(center.dx - maxRadius * math.cos(rad), center.dy + maxRadius * math.sin(rad)),
+        isCardinal ? cardinalTickPaint : tickPaint,
+      );
+    }
+
     // 2. Draw Iris (Detailed crypts, collarette & radial trabecular fibers)
     final irisRadius = maxRadius * 0.65;
     final irisPaint = Paint()
@@ -216,7 +340,38 @@ class EyePainter extends CustomPainter {
       );
     }
 
-    // 3. Draw Pupil (Black aperture) with physiological light reflex constriction
+    // 3. Draw External Facial Streak across Sclera and Iris (The Projected Physical Light Band)
+    double sweepAngleRad = (streakAngle - 90) * math.pi / 180;
+    final facialStreakCenter = Offset(
+      center.dx + beamPosition * math.cos(sweepAngleRad),
+      center.dy + beamPosition * math.sin(sweepAngleRad),
+    );
+
+    canvas.save();
+    canvas.translate(facialStreakCenter.dx, facialStreakCenter.dy);
+    canvas.rotate((streakAngle - 90) * math.pi / 180);
+
+    final facialStreakPaint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          const Color(0x00FFD54F),
+          const Color(0x44FFE082),
+          const Color(0xAAFFF59D),
+          const Color(0xEEFFFFFF),
+          const Color(0xAAFFF59D),
+          const Color(0x44FFE082),
+          const Color(0x00FFD54F),
+        ],
+        stops: const [0.0, 0.20, 0.38, 0.50, 0.62, 0.80, 1.0],
+      ).createShader(Rect.fromCenter(center: Offset.zero, width: 22, height: maxRadius * 2.8));
+
+    canvas.drawRect(
+      Rect.fromCenter(center: Offset.zero, width: 22, height: maxRadius * 2.8),
+      facialStreakPaint,
+    );
+    canvas.restore();
+
+    // 4. Draw Pupil (Black aperture) with physiological light reflex constriction
     final double pupilRadius;
     if (pupilDilated) {
       pupilRadius = irisRadius * (pupilApertureRatio * 1.55).clamp(0.75, 0.94);
@@ -234,8 +389,7 @@ class EyePainter extends CustomPainter {
     final pupilPath = Path()..addOval(Rect.fromCircle(center: center, radius: pupilRadius));
     canvas.clipPath(pupilPath);
 
-    // 4. Draw Choroidal Backscatter Base Glow (Deep Red-Orange Retro-Illumination)
-    // Backscatter intensifies when the retinoscope beam aligns centrally over the pupil
+    // 5. Draw Choroidal Backscatter Base Glow (Deep Red-Orange Retro-Illumination)
     double beamProximity = (1.0 - (beamPosition.abs() / (pupilRadius * 1.6))).clamp(0.0, 1.0);
     double dynamicChoroidGlow = (retinaOpacity * fundusLuminanceMultiplier * (0.92 + 0.45 * beamProximity)).clamp(0.15, 1.0);
 
@@ -253,10 +407,10 @@ class EyePainter extends CustomPainter {
       ).createShader(Rect.fromCircle(center: center, radius: pupilRadius));
     canvas.drawCircle(center, pupilRadius, retinaGlowPaint);
 
-    // 5. Advanced Shader-Based Fundus Reflex Dynamics
+    // 6. Advanced Shader-Based Fundus Reflex Dynamics
     if (reflexMotion == "neutral") {
       // 🌟 FULL PUPILLARY CAVITY NEUTRALITY FLASH (100% Aperture Fill)
-      final double peakLuminance = (reflectionOpacity * illuminance * fundusLuminanceMultiplier * 1.25).clamp(0.30, 1.0);
+      final double peakLuminance = (reflectionOpacity * illuminance * fundusLuminanceMultiplier * 1.28).clamp(0.35, 1.0);
       final neutralFlashPaint = Paint()
         ..shader = RadialGradient(
           colors: [
@@ -272,39 +426,40 @@ class EyePainter extends CustomPainter {
       canvas.drawCircle(center, pupilRadius, neutralFlashPaint);
     } else {
       double motionDirection = reflexMotion == "against" ? -1.0 : 1.0;
-      double sweepAngleRad = (streakAngle - 90) * math.pi / 180;
 
-      // Physically simulated non-linear velocity displacement
+      // Physically simulated non-linear velocity displacement & Skew shear translation
       double reflexOffset = beamPosition * motionDirection * (0.34 * velocityFactor);
+      double skewDisplacement = skewShearFactor * 18.0;
 
       final reflexCenter = Offset(
-        center.dx + reflexOffset * math.cos(sweepAngleRad),
-        center.dy + reflexOffset * math.sin(sweepAngleRad),
+        center.dx + reflexOffset * math.cos(sweepAngleRad) + skewDisplacement * math.sin(sweepAngleRad),
+        center.dy + reflexOffset * math.sin(sweepAngleRad) - skewDisplacement * math.cos(sweepAngleRad),
       );
 
       final double peakOpacity = (reflectionOpacity * illuminance * fundusLuminanceMultiplier * 1.35).clamp(0.20, 1.0);
-      double rWidth = reflexWidth.abs().clamp(5.0, pupilRadius * 2.8);
+      double dynamicFillWidth = pupilRadius * 2.0 * pupilFillRatio;
+      double rWidth = math.max(reflexWidth.abs(), dynamicFillWidth).clamp(6.0, pupilRadius * 2.8);
 
-      // Multi-Stop Optical Gaussian Beam Profile Shader (Vivid Gold-Orange-White Filament with High Radiance)
+      // Multi-Stop Optical Gaussian Beam Profile Shader (Vivid Gold-Orange-White Filament)
       final reflexPaint = Paint()
         ..shader = LinearGradient(
           colors: [
-            const Color(0xFFC62828).withValues(alpha: 0.0),
-            const Color(0xFFE64A19).withValues(alpha: (peakOpacity * 0.45).clamp(0.0, 1.0)),
-            const Color(0xFFFF6D00).withValues(alpha: (peakOpacity * 0.80).clamp(0.0, 1.0)),
-            const Color(0xFFFFD54F).withValues(alpha: (peakOpacity * 0.96).clamp(0.0, 1.0)),
+            streakColor.withValues(alpha: 0.0),
+            streakColor.withValues(alpha: (peakOpacity * 0.45).clamp(0.0, 1.0)),
+            streakColor.withValues(alpha: (peakOpacity * 0.80).clamp(0.0, 1.0)),
+            streakColor.withValues(alpha: (peakOpacity * 0.96).clamp(0.0, 1.0)),
             const Color(0xFFFFFFFF).withValues(alpha: peakOpacity), // Incandescent white filament core
-            const Color(0xFFFFD54F).withValues(alpha: (peakOpacity * 0.96).clamp(0.0, 1.0)),
-            const Color(0xFFFF6D00).withValues(alpha: (peakOpacity * 0.80).clamp(0.0, 1.0)),
-            const Color(0xFFE64A19).withValues(alpha: (peakOpacity * 0.45).clamp(0.0, 1.0)),
-            const Color(0xFFC62828).withValues(alpha: 0.0),
+            streakColor.withValues(alpha: (peakOpacity * 0.96).clamp(0.0, 1.0)),
+            streakColor.withValues(alpha: (peakOpacity * 0.80).clamp(0.0, 1.0)),
+            streakColor.withValues(alpha: (peakOpacity * 0.45).clamp(0.0, 1.0)),
+            streakColor.withValues(alpha: 0.0),
           ],
           stops: const [0.0, 0.10, 0.26, 0.42, 0.50, 0.58, 0.74, 0.90, 1.0],
         ).createShader(Rect.fromCenter(center: Offset.zero, width: rWidth, height: pupilRadius * 3.5));
 
       if (scissorsMotionActive) {
-        // Scissors Blade 1 (Dynamic dual-split aberration)
-        double angle1 = (reflexAngle - 90) + breakDisplacementAngle + (beamPosition * 0.22);
+        // Scissors Blade 1 (Dynamic dual-split aberration with parabolic curvature)
+        double angle1 = (reflexAngle - 90) + breakDisplacementAngle + (beamPosition * 0.26);
         canvas.save();
         canvas.translate(reflexCenter.dx, reflexCenter.dy);
         canvas.rotate(angle1 * math.pi / 180);
@@ -315,10 +470,10 @@ class EyePainter extends CustomPainter {
         canvas.restore();
 
         // Scissors Blade 2 (Opposing blade crossing toward center)
-        double angle2 = (reflexAngle - 90) + breakDisplacementAngle - (beamPosition * 0.22);
+        double angle2 = (reflexAngle - 90) + breakDisplacementAngle - (beamPosition * 0.26);
         final reflexCenter2 = Offset(
-          center.dx - reflexOffset * math.cos(sweepAngleRad),
-          center.dy - reflexOffset * math.sin(sweepAngleRad),
+          center.dx - reflexOffset * math.cos(sweepAngleRad) - skewDisplacement * math.sin(sweepAngleRad),
+          center.dy - reflexOffset * math.sin(sweepAngleRad) + skewDisplacement * math.cos(sweepAngleRad),
         );
         canvas.save();
         canvas.translate(reflexCenter2.dx, reflexCenter2.dy);
@@ -342,7 +497,7 @@ class EyePainter extends CustomPainter {
       }
     }
 
-    // 6. Draw Media Opacities (Cataract & Corneal Scars within aperture)
+    // 7. Draw Media Opacities (Cataract & Corneal Scars within aperture)
     if (cataractDensity > 0.0) {
       final cataractPaint = Paint()
         ..shader = RadialGradient(
@@ -358,7 +513,7 @@ class EyePainter extends CustomPainter {
 
     canvas.restore(); // Restore from pupil clipping mask
 
-    // 7. Anterior Corneal Scar (if simulated)
+    // 8. Anterior Corneal Scar (if simulated)
     if (cornealOpacity > 0.0) {
       final scarPaint = Paint()
         ..shader = RadialGradient(
@@ -379,7 +534,7 @@ class EyePainter extends CustomPainter {
       );
     }
 
-    // 8. Dynamic 3D Purkinje Corneal Highlight with subtle sweep parallax
+    // 9. Dynamic 3D Purkinje Corneal Highlight with subtle sweep parallax
     double parallaxOffset = (beamPosition / (pupilRadius * 2.0)).clamp(-0.15, 0.15);
     final highlightCenter = Offset(
       center.dx - pupilRadius * (0.4 - parallaxOffset),
@@ -405,7 +560,7 @@ class EyePainter extends CustomPainter {
       highlightPaint,
     );
 
-    // 9. 🌟 Optical Conjugacy Limbus Ring (Glows softly when Neutral Point is achieved)
+    // 10. 🌟 Optical Conjugacy Limbus Ring (Glows softly when Neutral Point is achieved)
     if (reflexMotion == "neutral") {
       final limbusRingPaint = Paint()
         ..style = PaintingStyle.stroke
@@ -439,8 +594,12 @@ class EyePainter extends CustomPainter {
         oldDelegate.cataractDensity != cataractDensity ||
         oldDelegate.cornealOpacity != cornealOpacity ||
         oldDelegate.breakDisplacementAngle != breakDisplacementAngle ||
+        oldDelegate.skewShearFactor != skewShearFactor ||
         oldDelegate.velocityFactor != velocityFactor ||
-        oldDelegate.illuminance != illuminance;
+        oldDelegate.illuminance != illuminance ||
+        oldDelegate.pupilFillRatio != pupilFillRatio ||
+        oldDelegate.pupilApertureRatio != pupilApertureRatio ||
+        oldDelegate.fundusLuminanceMultiplier != fundusLuminanceMultiplier;
   }
 }
 

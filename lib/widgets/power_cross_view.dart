@@ -7,12 +7,14 @@ class PowerCrossView extends StatelessWidget {
   final double sphere;
   final double cylinder;
   final double axis;
+  final double workingDistance;
 
   const PowerCrossView({
     super.key,
     required this.sphere,
     required this.cylinder,
     required this.axis,
+    this.workingDistance = 0.0,
   });
 
   @override
@@ -21,6 +23,9 @@ class PowerCrossView extends StatelessWidget {
     final double angle1 = axis;
     final double power2 = sphere + cylinder;
     final double angle2 = (axis + 90) > 180 ? axis - 90 : axis + 90;
+
+    final double gross1 = power1 + workingDistance;
+    final double gross2 = power2 + workingDistance;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -75,8 +80,8 @@ class PowerCrossView extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildMeridianBadge('Meridian 1', power1, angle1, Colors.greenAccent),
-              _buildMeridianBadge('Meridian 2', power2, angle2, Colors.amberAccent),
+              _buildMeridianBadge('Meridian 1', power1, gross1, angle1, Colors.greenAccent),
+              _buildMeridianBadge('Meridian 2', power2, gross2, angle2, Colors.amberAccent),
             ],
           ),
         ],
@@ -84,8 +89,11 @@ class PowerCrossView extends StatelessWidget {
     );
   }
 
-  Widget _buildMeridianBadge(String title, double power, double angle, Color color) {
-    final String sign = power > 0 ? '+' : '';
+  Widget _buildMeridianBadge(String title, double netPower, double grossPower, double angle, Color color) {
+    final String netSign = netPower > 0 ? '+' : '';
+    final String grossSign = grossPower > 0 ? '+' : '';
+    final bool hasWd = workingDistance > 0;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -98,9 +106,16 @@ class PowerCrossView extends StatelessWidget {
           Text(title, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
           const SizedBox(height: 2),
           Text(
-            '$sign${power.toStringAsFixed(2)} D @ ${angle.toStringAsFixed(0)}°',
+            'Net: $netSign${netPower.toStringAsFixed(2)} D @ ${angle.toInt()}°',
             style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
           ),
+          if (hasWd) ...[
+            const SizedBox(height: 2),
+            Text(
+              'Gross: $grossSign${grossPower.toStringAsFixed(2)} D',
+              style: TextStyle(color: color.withValues(alpha: 0.9), fontSize: 10, fontWeight: FontWeight.w600),
+            ),
+          ],
         ],
       ),
     );

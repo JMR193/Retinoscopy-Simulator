@@ -1,5 +1,8 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:retinoscopy_simulator/state/retinoscopy_state.dart';
+import 'package:retinoscopy_simulator/models/patient_profile.dart';
+import 'package:retinoscopy_simulator/services/notification_service.dart';
+import 'package:retinoscopy_simulator/services/storage_service.dart';
 
 void main() {
   group('A to Z Retinoscopy Clinical & Optical Physics Tests', () {
@@ -196,6 +199,252 @@ void main() {
       state.minusSphere = -2.00;
       state.plusLensesSelected = false;
       expect(state.patientSubjectiveResponse, contains('equally clear'));
+    });
+
+    test('12. Continuous Velocity & 100% Aperture Fill at Neutrality', () {
+      state.patientSphere = 0.0;
+      state.workingDistance = 0.0;
+      state.plusSphere = 0.0;
+
+      // At exact neutral point, pupil fill ratio is 1.0 (100% aperture flash)
+      expect(state.reflexMotion, equals('neutral'));
+      expect(state.pupilFillRatio, equals(1.0));
+      expect(state.reflexVelocityFactor, greaterThan(4.0));
+
+      // 3.00 D away from neutrality -> narrow reflex, slower velocity
+      state.patientSphere = 3.00;
+      expect(state.reflexMotion, equals('with'));
+      expect(state.pupilFillRatio, lessThan(0.50));
+      expect(state.reflexVelocityFactor, lessThan(1.50));
+    });
+
+    test('13. Copeland ±45° Straddle Metrics & Equilibrium Detection', () {
+      // Patient with with-the-rule astigmatism at 90°
+      state.patientSphere = 0.0;
+      state.patientCylinder = -2.00;
+      state.patientAngle = 90.0;
+      state.workingDistance = 0.0;
+
+      // When trial axis is correctly aligned at 90° with active cylinder
+      state.plusCylinder = 2.00;
+      state.plusAxis = 90.0;
+      state.plusLensesSelected = true;
+      state.streakAngle = 90.0;
+
+      // Straddling ±45° gives symmetric reflex width and brightness
+      expect(state.isStraddleEquilibrium, isTrue);
+      expect(state.straddleWidthDelta, lessThan(2.5));
+
+      // When trial axis is misaligned at 70° (20° error)
+      state.plusAxis = 70.0;
+      expect(state.isStraddleEquilibrium, isFalse);
+      expect(state.straddleClinicalAdvice, contains('Rotate'));
+    });
+
+    test('14. Astigmatic Skew Shear Factor', () {
+      state.patientSphere = 0.0;
+      state.patientCylinder = -3.00;
+      state.patientAngle = 45.0; // Oblique
+
+      // Swept along 90° (off-axis) -> skew shear factor is non-zero
+      state.streakAngle = 90.0;
+      expect(state.skewShearFactor.abs(), greaterThan(0.1));
+
+      // Aligned on-axis at 45° -> zero skew shear
+      state.streakAngle = 45.0;
+      expect(state.skewShearFactor.abs(), lessThan(0.01));
+    });
+
+    test('15. Clinical Protocol State Machine Progression', () {
+      // Start AAO Plus-Cyl Protocol
+      state.setProtocol(ClinicalProtocolMode.aaoPlusCyl);
+      expect(state.activeProtocol, equals(ClinicalProtocolMode.aaoPlusCyl));
+      expect(state.protocolStep, equals(1));
+      expect(state.protocolStepTitle, contains('1st Principal Meridian'));
+
+      // Progress through steps
+      state.nextProtocolStep();
+      expect(state.protocolStep, equals(2));
+      state.nextProtocolStep();
+      expect(state.protocolStep, equals(3));
+      state.nextProtocolStep();
+      expect(state.protocolStep, equals(4));
+      state.nextProtocolStep();
+      expect(state.protocolStep, equals(5));
+      expect(state.protocolStepTitle, contains('Net Refraction'));
+
+      // Test Mohindra mode switch
+      state.setProtocol(ClinicalProtocolMode.mohindraPediatric);
+      expect(state.isMohindraMode, isTrue);
+      expect(state.workingDistance, equals(2.00));
+    });
+
+    test('16. Javal\'s Rule Keratometry & Corneal Astigmatism Estimation', () {
+      // K1 = 43.00 D @ 180°, K2 = 45.00 D @ 90° (With-the-rule corneal delta K = +2.00 D)
+      final result = RetinoscopyState.calculateJavalsRule(
+        k1Diopters: 43.00,
+        k2Diopters: 45.00,
+        k1Axis: 180.0,
+      );
+
+      expect(result['cornealDeltaK'], closeTo(2.00, 0.001));
+      // Total Est Astigmatism = 1.25 * (2.00) - 0.50 = +2.00 D
+      expect(result['estimatedAstigmatism'], closeTo(2.00, 0.001));
+      expect(result['astigmatismType'], contains('With-The-Rule'));
+    });
+
+    test('17. Jackson Cross-Cylinder (JCC) Spherical Equivalent Maintenance', () {
+      state.plusSphere = 2.00;
+      state.plusCylinder = 1.00;
+      state.plusLensesSelected = true;
+
+      // Initial SE = 2.00 + (1.00 / 2) = +2.50 D
+      // When adding -0.50 D cylinder, should add +0.25 D sphere to maintain SE at +2.50 D
+      state.adjustJccCylinderWithSphericalEquivalence(-0.50);
+
+      expect(state.plusCylinder, closeTo(0.50, 0.001));
+      expect(state.plusSphere, closeTo(2.25, 0.001));
+      // Final SE = 2.25 + (0.50 / 2) = +2.50 D (Unchanged circle of least confusion)
+      double finalSE = state.plusSphere + (state.plusCylinder / 2.0);
+      expect(finalSE, closeTo(2.50, 0.001));
+    });
+
+    test('18. Clinical Master Library Case Definitions & QR Payload', () {
+      final cases = PatientProfile.getCuratedMasterLibrary();
+      expect(cases.length, equals(10));
+
+      // Case 4 is WTR Astigmatism
+      final wtrCase = cases[3];
+      expect(wtrCase.name, contains('With-The-Rule'));
+      expect(wtrCase.sphere, equals(1.00));
+      expect(wtrCase.cylinder, equals(-2.00));
+      expect(wtrCase.axis, equals(180.0));
+
+      // QR Payload serialization & deserialization round-trip
+      final qrPayload = wtrCase.toQrPayload();
+      expect(qrPayload, startsWith('retino://case?d='));
+      final decodedCase = PatientProfile.fromQrPayload(qrPayload);
+      expect(decodedCase, isNotNull);
+      expect(decodedCase!.sphere, equals(1.00));
+      expect(decodedCase.cylinder, equals(-2.00));
+      expect(decodedCase.axis, equals(180.0));
+    });
+
+    test('19. Beginner Onboarding Optical Rules & Starter Cases', () {
+      // 1. Hyperopia (+2.00 D at 67 cm WD) -> With motion neutralized with +3.50 D Gross Lens
+      state.patientSphere = 2.00;
+      state.patientCylinder = 0.0;
+      state.workingDistance = 1.50;
+      state.plusSphere = 0.0;
+      expect(state.reflexMotion, equals('with'));
+
+      // Neutralized by dialing +3.50 D gross (+2.00 D patient + 1.50 D WD)
+      state.plusSphere = 3.50;
+      state.plusLensesSelected = true;
+      expect(state.reflexMotion, equals('neutral'));
+      expect(state.pupilFillRatio, equals(1.0));
+
+      // 2. Myopia (-2.00 D at 67 cm WD) -> Against motion neutralized with -0.50 D Gross Lens
+      state.patientSphere = -2.00;
+      state.patientCylinder = 0.0;
+      state.plusSphere = 0.0;
+      state.minusSphere = 0.0;
+      state.plusLensesSelected = false;
+      expect(state.reflexMotion, equals('against'));
+
+      // Neutralized by dialing -0.50 D gross (-2.00 D patient + 1.50 D WD)
+      state.minusSphere = -0.50;
+      expect(state.reflexMotion, equals('neutral'));
+      expect(state.pupilFillRatio, equals(1.0));
+
+      // 3. Working distance deduction formula: Net = Gross - WD
+      double grossLens = 3.50;
+      double workingDistanceDiopters = 1.50; // 67 cm
+      double netRx = grossLens - workingDistanceDiopters;
+      expect(netRx, equals(2.00));
+    });
+
+    test('20. Clinical Notification Prompts & Study Reminders Integration', () {
+      // Prompt generator generates valid ophthalmic case prompts
+      final prompt = NotificationService.getDailyCasePrompt();
+      expect(prompt.containsKey('title'), isTrue);
+      expect(prompt.containsKey('desc'), isTrue);
+      expect(prompt['title']!, contains('Daily Case:'));
+
+      // Reminder time formatting
+      StorageService.setReminderTime(8, 30);
+      expect(NotificationService.getReminderTimeString(), equals('8:30 AM'));
+
+      StorageService.setReminderTime(14, 15);
+      expect(NotificationService.getReminderTimeString(), equals('2:15 PM'));
+
+      // Reminder enablement toggle
+      NotificationService.setDailyReminderEnabled(true);
+      expect(NotificationService.isDailyReminderEnabled(), isTrue);
+
+      NotificationService.setDailyReminderEnabled(false);
+      expect(NotificationService.isDailyReminderEnabled(), isFalse);
+    });
+
+    test('21. Modulo 180 Axis Difference Calculation', () {
+      expect(RetinoscopyState.calculateAxisDifference(180.0, 0.0), equals(0.0));
+      expect(RetinoscopyState.calculateAxisDifference(180.0, 5.0), equals(5.0));
+      expect(RetinoscopyState.calculateAxisDifference(175.0, 5.0), equals(10.0));
+      expect(RetinoscopyState.calculateAxisDifference(90.0, 90.0), equals(0.0));
+      expect(RetinoscopyState.calculateAxisDifference(90.0, 95.0), equals(5.0));
+    });
+
+    test('22. Answer Check with Modulo 180 Axis Wrap-Around', () {
+      state.patientSphere = 1.00;
+      state.patientCylinder = -2.00;
+      state.patientAngle = 180.0; // Axis 180°
+
+      // User enters axis 180° vs 0° or 178° -> should pass
+      bool check180 = state.checkAnswer(
+        userSphere1: 1.00,
+        userCylinder1: -2.00,
+        userAxis1: 180.0,
+        userSphere2: -1.00,
+        userCylinder2: 2.00,
+        userAxis2: 90.0,
+      );
+      expect(check180, isTrue);
+
+      bool checkCloseAxis = state.checkAnswer(
+        userSphere1: 1.00,
+        userCylinder1: -2.00,
+        userAxis1: 178.0, // Within 5° tolerance of 180°
+        userSphere2: -1.00,
+        userCylinder2: 2.00,
+        userAxis2: 88.0,  // Within 5° tolerance of 90°
+      );
+      expect(checkCloseAxis, isTrue);
+    });
+
+    test('23. Retinoscopy Answer Calculator Method (Dual Meridian M1/M2 solver)', () {
+      // Gross M1 = +3.50 D @ 90°, Gross M2 = +1.50 D @ 180°, WD = +1.50 D (67 cm)
+      final answer = RetinoscopyState.calculateRetinoscopyAnswer(
+        grossM1Power: 3.50,
+        grossM1Axis: 90.0,
+        grossM2Power: 1.50,
+        workingDistance: 1.50,
+      );
+
+      expect(answer['netM1'], equals(2.00));
+      expect(answer['netM2'], equals(0.00));
+
+      // Plus Cylinder Form: +0.00 DS / +2.00 DC x 90°
+      expect(answer['plusSphere'], equals(0.00));
+      expect(answer['plusCylinder'], equals(2.00));
+      expect(answer['plusAxis'], equals(90.0));
+
+      // Minus Cylinder Form: +2.00 DS / -2.00 DC x 180°
+      expect(answer['minusSphere'], equals(2.00));
+      expect(answer['minusCylinder'], equals(-2.00));
+      expect(answer['minusAxis'], equals(180.0));
+
+      // Spherical Equivalent: +1.00 DS
+      expect(answer['sphericalEquivalent'], equals(1.00));
     });
   });
 }

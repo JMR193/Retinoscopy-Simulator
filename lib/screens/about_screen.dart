@@ -67,13 +67,12 @@ class _AboutScreenState extends State<AboutScreen> {
     final build = _packageInfo?.buildNumber ?? '2';
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: const Text('About'),
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
+        title: const Text('About Retinoscopy Simulator'),
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -110,8 +109,11 @@ class _AboutScreenState extends State<AboutScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Version $version (Build $build)',
-              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+              'Elite Clinical Edition • Version $version (Build $build)',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: isDark ? Colors.white70 : Colors.grey[600],
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -135,9 +137,9 @@ class _AboutScreenState extends State<AboutScreen> {
                   'patient screening, or any form of medical decision-making.\n\n'
                   'Always consult a qualified ophthalmologist or optometrist for clinical assessments. '
                   'JMR Technologies accepts no liability for any clinical decisions made based on this simulation.',
-              contentColor: Colors.orange[900],
-              backgroundColor: Colors.orange[50],
-              borderColor: Colors.orange[200],
+              contentColor: isDark ? Colors.orange.shade200 : Colors.orange[900],
+              backgroundColor: isDark ? Colors.orange.withValues(alpha: 0.12) : Colors.orange[50],
+              borderColor: isDark ? Colors.orange.withValues(alpha: 0.35) : Colors.orange[200],
             ),
             const SizedBox(height: 16),
 
@@ -241,13 +243,16 @@ class _AboutScreenState extends State<AboutScreen> {
     Color? backgroundColor,
     Color? borderColor,
   }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: backgroundColor ?? Colors.grey[50],
+        color: backgroundColor ?? (isDark ? const Color(0xFF161618) : Colors.grey[50]),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor ?? Colors.grey[200]!),
+        border: Border.all(color: borderColor ?? (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey[200]!)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -272,7 +277,7 @@ class _AboutScreenState extends State<AboutScreen> {
             style: TextStyle(
               fontSize: 13,
               height: 1.55,
-              color: contentColor ?? Colors.black87,
+              color: contentColor ?? (isDark ? Colors.white.withValues(alpha: 0.88) : Colors.black87),
             ),
           ),
           if (actionLabel != null && onAction != null) ...[

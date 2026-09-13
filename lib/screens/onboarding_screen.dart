@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/storage_service.dart';
-import '../main.dart';
+import 'profile_setup_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -30,16 +29,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
       'color': const Color(0xFF00796B),
     },
     {
-      'icon': Icons.psychology_outlined,
-      'title': 'Offline AI Clinical Hints',
-      'body': 'Our built-in AI engine analyzes your retinoscopy technique in real time. Get instant clinical suggestions — works completely offline, no internet needed.',
+      'icon': Icons.tune,
+      'title': 'Advanced Controls',
+      'body': 'Control sleeve elevation (plane vs. concave mirror effect), adjust working distance, and identify challenging keratoconic scissors motion.',
       'color': const Color(0xFF7B1FA2),
     },
     {
-      'icon': Icons.quiz_outlined,
-      'title': 'Test Your Skills',
-      'body': 'Take timed 10-case exams, check your accuracy, and track your improvement over time. Share exam reports with your supervisor.',
-      'color': const Color(0xFFF57C00),
+      'icon': Icons.assignment_turned_in,
+      'title': 'Clinical Guided Mode',
+      'body': 'Follow structured protocols to neutralize spherical errors first, locate the principal meridians, and straddle the axis to refine astigmatism.',
+      'color': const Color(0xFFC2185B),
     },
     {
       'icon': Icons.check_circle_outline,
@@ -54,15 +53,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 600),
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeIn,
     ));
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(CurvedAnimation(
+    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(CurvedAnimation(
       parent: _animationController,
-      curve: Curves.easeOut,
+      curve: Curves.easeOutCubic,
     ));
     
     _animationController.forward();
@@ -83,14 +82,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
     _animationController.forward();
   }
 
-  void _finishOnboarding() async {
-    await StorageService.markFirstLaunchDone();
-    if (!mounted) {
-      return;
-    }
+  void _finishOnboarding() {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const AppShell()),
+      MaterialPageRoute(builder: (context) => const ProfileSetupScreen()),
     );
   }
 
@@ -175,7 +170,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       fontSize: 15,
-                                      color: Colors.black87,
+                                      
                                       height: 1.6,
                                     ),
                                   ),
@@ -247,7 +242,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                 child: const Text(
                   'Skip',
                   style: TextStyle(
-                    color: Colors.black54,
+                    
                     fontWeight: FontWeight.bold,
                   ),
                 ),

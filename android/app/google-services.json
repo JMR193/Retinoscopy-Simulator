@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "52098642997",
+    "project_id": "retinoscopy-simulator",
+    "storage_bucket": "retinoscopy-simulator.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:52098642997:android:d496e5db725b56f9696d7c",
+        "android_client_info": {
+          "package_name": "com.jmrtech.retinoscopy_simulator"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCiDheP5DON-UUFubo8OEdFbemqJD-vPb4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

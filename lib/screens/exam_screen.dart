@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 import '../services/certificate_service.dart';
 import '../services/storage_service.dart';
 import '../services/audio_service.dart';
+import '../state/retinoscopy_state.dart';
+import '../widgets/social_share_modal.dart';
+import 'leaderboard_screen.dart';
 
 class ExamScreen extends StatefulWidget {
   const ExamScreen({super.key});
@@ -157,6 +159,17 @@ class _ExamScreenState extends State<ExamScreen> {
         );
       }
     }
+    
+    // Clinical Competency CME Reward calculation
+    int xpReward = correctCount * 300;
+    
+    if (correctCount == _totalCases && _totalCases > 0) {
+      // Perfect Score Bonus!
+      xpReward += 1000;
+    }
+    
+    StorageService.addXp(xpReward);
+
     setState(() {
       _score = correctCount;
       _examComplete = true;
@@ -170,12 +183,22 @@ class _ExamScreenState extends State<ExamScreen> {
     }
     double refS2 = refS + refC;
     double refC2 = -refC;
-    double refA2 = refA + 90 > 180 ? refA - 90 : refA + 90;
-    bool match1 = (s1 - refS).abs() < 0.13 && (c1 - refC).abs() < 0.13 && ((a1 - refA).abs() < 1 || (a1 - refA).abs() == 180);
-    bool match2 = (s2 - refS2).abs() < 0.13 && (c2 - refC2).abs() < 0.13 && ((a2 - refA2).abs() < 1 || (a2 - refA2).abs() == 180);
-    bool match1b = (s1 - refS2).abs() < 0.13 && (c1 - refC2).abs() < 0.13 && ((a1 - refA2).abs() < 1 || (a1 - refA2).abs() == 180);
-    bool match2b = (s2 - refS).abs() < 0.13 && (c2 - refC).abs() < 0.13 && ((a2 - refA).abs() < 1 || (a2 - refA).abs() == 180);
-    return (match1 && match2) || (match1b && match2b);
+    double refA2 = refA + 90.0 > 180.0 ? refA - 90.0 : refA + 90.0;
+
+    bool checkSingleRx(double s, double c, double a, double targetS, double targetC, double targetA) {
+      final double axisDiff = RetinoscopyState.calculateAxisDifference(a, targetA);
+      final double axisTolerance = targetC.abs() >= 0.50 ? 5.0 : 10.0;
+      return (s - targetS).abs() < 0.13 &&
+             (c - targetC).abs() < 0.13 &&
+             axisDiff <= axisTolerance;
+    }
+
+    bool isStandardMatch = checkSingleRx(s1, c1, a1, refS, refC, refA) &&
+                          checkSingleRx(s2, c2, a2, refS2, refC2, refA2);
+    bool isTransposedMatch = checkSingleRx(s1, c1, a1, refS2, refC2, refA2) &&
+                            checkSingleRx(s2, c2, a2, refS, refC, refA);
+
+    return isStandardMatch || isTransposedMatch;
   }
 
   void _recordAnswer({bool skipped = false}) {
@@ -296,21 +319,33 @@ class _ExamScreenState extends State<ExamScreen> {
   void _shareResults() {
     final String dateStr = DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now());
     final int percent = (_score / _totalCases * 100).toInt();
+    final String candidateName = StorageService.getUserName();
+    final String displayName = candidateName.isEmpty ? 'Clinical Candidate' : candidateName;
     
     final StringBuffer buffer = StringBuffer();
-    buffer.writeln('JMR Technologies — Retinoscopy Simulator');
-    buffer.writeln('Exam Report — $dateStr');
-    buffer.writeln('Score: $_score/$_totalCases ($percent%)');
-    buffer.writeln('');
+    buffer.writeln('📋 JMR Technologies — Retinoscopy Simulator');
+    buffer.writeln('Exam Report & Clinical Competency Assessment');
+    buffer.writeln('Candidate: $displayName');
+    buffer.writeln('Date: $dateStr');
+    buffer.writeln('Final Score: $_score/$_totalCases ($percent%)');
+    buffer.writeln('─' * 32);
     
     for (int i = 0; i < _answers.length; i++) {
       final Map<String, dynamic> ans = _answers[i];
-      final String status = ans['correct'] == true ? 'Correct' : 'Incorrect';
+      final String status = ans['correct'] == true ? '✓ Pass' : '✗ Review';
       final String correctRx = ans['correctRx'] as String;
-      buffer.writeln('Case ${i + 1}: $status — Correct: $correctRx');
+      buffer.writeln('Case ${i + 1}: $status (Target: $correctRx)');
     }
-    
-    SharePlus.instance.share(ShareParams(text: buffer.toString()));
+    buffer.writeln('');
+    buffer.writeln('Verified via Retinoscopy Simulator Pro • #Optometry #RetinoscopyExam');
+
+    SocialShareModal.show(
+      context: context,
+      title: 'Share Exam Report',
+      subtitle: 'Score: $_score/$_totalCases ($percent%) • $dateStr',
+      shareText: buffer.toString(),
+      type: ShareType.examReport,
+    );
   }
 
   Widget _buildActiveExam() {
@@ -531,18 +566,47 @@ class _ExamScreenState extends State<ExamScreen> {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           color: gradeColor.withValues(alpha: 0.1),
           child: Column(
             children: [
-              Text(
-                '$_score/$_totalCases',
-                style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '$_score/$_totalCases',
+                    style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 14),
+                  Chip(
+                    label: Text(gradeLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    backgroundColor: gradeColor,
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Chip(
-                label: Text(gradeLabel, style: const TextStyle(color: Colors.white)),
-                backgroundColor: gradeColor,
+              const SizedBox(height: 12),
+              // --- Clinical Competency Credits ---
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.school, color: Colors.blueAccent, size: 20),
+                  const SizedBox(width: 6),
+                  Text('+${_score * 50} Clinical CME Points', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                  const SizedBox(width: 16),
+                  const Icon(Icons.verified_outlined, color: Colors.teal, size: 20),
+                  const SizedBox(width: 6),
+                  Text('$percent% Accuracy Index', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Competency Domains
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildDomainPill('Spherical', percent >= 80 ? 'Master' : 'Review', percent >= 80 ? Colors.green : Colors.orange),
+                  _buildDomainPill('Astigmatism', percent >= 70 ? 'Proficient' : 'Practice', percent >= 70 ? Colors.blue : Colors.red),
+                  _buildDomainPill('Transposition', percent >= 90 ? 'Expert' : 'Good', percent >= 90 ? Colors.purple : Colors.amber[800]!),
+                ],
               ),
             ],
           ),
@@ -602,9 +666,25 @@ class _ExamScreenState extends State<ExamScreen> {
                 icon: const Icon(Icons.workspace_premium, color: Colors.amber),
                 label: const Text('Download Clinical Certificate (PDF)'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo[900],
+                  backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.indigo.shade800 : Colors.indigo[900],
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const LeaderboardScreen()));
+                },
+                icon: const Icon(Icons.emoji_events_rounded, color: Colors.amber),
+                label: const Text('View Global Clinical Leaderboard'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
             ),
@@ -660,9 +740,38 @@ class _ExamScreenState extends State<ExamScreen> {
               }
             },
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.emoji_events_outlined),
+              tooltip: 'Global Leaderboard',
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const LeaderboardScreen()));
+              },
+            ),
+          ],
         ),
         body: _examComplete ? _buildResults() : _buildActiveExam(),
       ),
     );
   }
+
+  Widget _buildDomainPill(String domain, String rating, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(domain, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          Text(rating, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+        ],
+      ),
+    );
+  }
 }
+

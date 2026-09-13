@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'cloud_sync_service.dart';
 
 /// Persistent storage service — JMR Technologies
 /// Handles all SharedPreferences-backed data persistence for the Retinoscopy Simulator.
@@ -182,6 +183,236 @@ class StorageService {
     }
   }
 
+  // ─── Daily Study Reminders & Notifications ─────────────────────────────────
+  static const String _dailyReminderKey = 'daily_reminder_enabled_v1';
+  static const String _reminderHourKey = 'daily_reminder_hour_v1';
+  static const String _reminderMinuteKey = 'daily_reminder_minute_v1';
+  static const String _studyStreakKey = 'study_streak_count_v1';
+  static const String _lastStudyDateKey = 'last_study_date_v1';
+
+  static bool getDailyReminderEnabled() =>
+      _prefs?.getBool(_dailyReminderKey) ?? (_memoryFallback[_dailyReminderKey] as bool?) ?? true;
+
+  static Future<void> setDailyReminderEnabled(bool val) async {
+    if (_prefs != null) {
+      await _prefs!.setBool(_dailyReminderKey, val);
+    } else {
+      _memoryFallback[_dailyReminderKey] = val;
+    }
+  }
+
+  static int getReminderHour() =>
+      _prefs?.getInt(_reminderHourKey) ?? (_memoryFallback[_reminderHourKey] as int?) ?? 9;
+
+  static int getReminderMinute() =>
+      _prefs?.getInt(_reminderMinuteKey) ?? (_memoryFallback[_reminderMinuteKey] as int?) ?? 0;
+
+  static Future<void> setReminderTime(int hour, int minute) async {
+    if (_prefs != null) {
+      await _prefs!.setInt(_reminderHourKey, hour);
+      await _prefs!.setInt(_reminderMinuteKey, minute);
+    } else {
+      _memoryFallback[_reminderHourKey] = hour;
+      _memoryFallback[_reminderMinuteKey] = minute;
+    }
+  }
+
+  static int getStudyStreak() =>
+      _prefs?.getInt(_studyStreakKey) ?? (_memoryFallback[_studyStreakKey] as int?) ?? 1;
+
+  static Future<void> recordStudySession() async {
+    final now = DateTime.now();
+    final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final lastDate = _prefs?.getString(_lastStudyDateKey) ?? (_memoryFallback[_lastStudyDateKey] as String?);
+
+    bool isNewDay = false;
+    int currentStreak = getStudyStreak();
+
+    if (lastDate == null) {
+      isNewDay = true;
+      currentStreak = 1;
+    } else if (lastDate != todayStr) {
+      isNewDay = true;
+      final lastDateTime = DateTime.tryParse(lastDate);
+      if (lastDateTime != null && now.difference(lastDateTime).inDays == 1) {
+        currentStreak += 1;
+      } else if (lastDateTime != null && now.difference(lastDateTime).inDays > 1) {
+        currentStreak = 1;
+      }
+    }
+
+    if (isNewDay) {
+      if (_prefs != null) {
+        await _prefs!.setString(_lastStudyDateKey, todayStr);
+        await _prefs!.setInt(_studyStreakKey, currentStreak);
+      } else {
+        _memoryFallback[_lastStudyDateKey] = todayStr;
+        _memoryFallback[_studyStreakKey] = currentStreak;
+      }
+
+      // Give Daily Streak CME Bonus
+      int xpBonus = 100 * currentStreak;
+      if (currentStreak > 10) {
+        xpBonus = 1000;
+      }
+
+      await addXp(xpBonus);
+    }
+  }
+
+  // ─── Gamification: XP & Gems ─────────────────────────────────────────────────
+  static const String _xpKey = 'user_xp_v1';
+  static const String _gemsKey = 'user_gems_v1';
+
+  static int getXp() =>
+      _prefs?.getInt(_xpKey) ?? (_memoryFallback[_xpKey] as int?) ?? 0;
+
+  static Future<void> addXp(int amount) async {
+    final current = getXp();
+    if (_prefs != null) {
+      await _prefs!.setInt(_xpKey, current + amount);
+    } else {
+      _memoryFallback[_xpKey] = current + amount;
+    }
+    CloudSyncService.syncLocalDataToCloud(getXp(), getGems(), getStudyStreak(), getUserName());
+  }
+
+  static int getGems() =>
+      _prefs?.getInt(_gemsKey) ?? (_memoryFallback[_gemsKey] as int?) ?? 0;
+
+  static Future<void> addGems(int amount) async {
+    final current = getGems();
+    if (_prefs != null) {
+      await _prefs!.setInt(_gemsKey, current + amount);
+    } else {
+      _memoryFallback[_gemsKey] = current + amount;
+    }
+    CloudSyncService.syncLocalDataToCloud(getXp(), getGems(), getStudyStreak(), getUserName());
+  }
+
+  // ─── Gamification: Store & Cosmetics ───────────────────────────────────────
+  static const String _unlockedCosmeticsKey = 'unlocked_cosmetics_v1';
+  static const String _equippedCosmeticKey = 'equipped_cosmetic_v1';
+
+  static List<String> getUnlockedCosmetics() =>
+      _prefs?.getStringList(_unlockedCosmeticsKey) ?? 
+      (_memoryFallback[_unlockedCosmeticsKey] as List<String>?) ?? 
+      ['Default Orange'];
+
+  static Future<void> unlockCosmetic(String name) async {
+    final current = getUnlockedCosmetics();
+    if (!current.contains(name)) {
+      current.add(name);
+      if (_prefs != null) {
+        await _prefs!.setStringList(_unlockedCosmeticsKey, current);
+      } else {
+        _memoryFallback[_unlockedCosmeticsKey] = current;
+      }
+    }
+  }
+
+  static String getEquippedCosmetic() =>
+      _prefs?.getString(_equippedCosmeticKey) ?? 
+      (_memoryFallback[_equippedCosmeticKey] as String?) ?? 
+      'Default Orange';
+
+  static Future<void> equipCosmetic(String name) async {
+    if (_prefs != null) {
+      await _prefs!.setString(_equippedCosmeticKey, name);
+    } else {
+      _memoryFallback[_equippedCosmeticKey] = name;
+    }
+  }
+
+  // ─── Clinical Preferences & Accelerometer Settings ───────────────────────
+  static const String _accelerometerTiltKey = 'accelerometer_tilt_enabled_v1';
+  static const String _sphereStepKey = 'pref_sphere_step_v1';
+  static const String _cylinderStepKey = 'pref_cylinder_step_v1';
+  static const String _axisStepKey = 'pref_axis_step_v1';
+  static const String _liveNeutralityKey = 'pref_live_neutrality_v1';
+
+  /// Accelerometer Tilt Parallax: Default FALSE for steady clinical sweeps
+  static bool isAccelerometerTiltEnabled() =>
+      _prefs?.getBool(_accelerometerTiltKey) ??
+      (_memoryFallback[_accelerometerTiltKey] as bool?) ??
+      false;
+
+  static Future<void> setAccelerometerTiltEnabled(bool value) async {
+    if (_prefs != null) {
+      await _prefs!.setBool(_accelerometerTiltKey, value);
+    } else {
+      _memoryFallback[_accelerometerTiltKey] = value;
+    }
+  }
+
+  static double getSphereStep() =>
+      _prefs?.getDouble(_sphereStepKey) ??
+      (_memoryFallback[_sphereStepKey] as double?) ??
+      0.25;
+
+  static Future<void> setSphereStep(double value) async {
+    if (_prefs != null) {
+      await _prefs!.setDouble(_sphereStepKey, value);
+    } else {
+      _memoryFallback[_sphereStepKey] = value;
+    }
+  }
+
+  static double getCylinderStep() =>
+      _prefs?.getDouble(_cylinderStepKey) ??
+      (_memoryFallback[_cylinderStepKey] as double?) ??
+      0.25;
+
+  static Future<void> setCylinderStep(double value) async {
+    if (_prefs != null) {
+      await _prefs!.setDouble(_cylinderStepKey, value);
+    } else {
+      _memoryFallback[_cylinderStepKey] = value;
+    }
+  }
+
+  static double getAxisStep() =>
+      _prefs?.getDouble(_axisStepKey) ??
+      (_memoryFallback[_axisStepKey] as double?) ??
+      5.0;
+
+  static Future<void> setAxisStep(double value) async {
+    if (_prefs != null) {
+      await _prefs!.setDouble(_axisStepKey, value);
+    } else {
+      _memoryFallback[_axisStepKey] = value;
+    }
+  }
+
+  static bool getShowLiveNeutralityFeedback() =>
+      _prefs?.getBool(_liveNeutralityKey) ??
+      (_memoryFallback[_liveNeutralityKey] as bool?) ??
+      true;
+
+  static Future<void> setShowLiveNeutralityFeedback(bool value) async {
+    if (_prefs != null) {
+      await _prefs!.setBool(_liveNeutralityKey, value);
+    } else {
+      _memoryFallback[_liveNeutralityKey] = value;
+    }
+  }
+
+  // ─── Offline Clinical Guest Mode ──────────────────────────────────────────
+  static const String _guestModeKey = 'guest_mode_enabled_v1';
+
+  static bool isGuestMode() =>
+      _prefs?.getBool(_guestModeKey) ??
+      (_memoryFallback[_guestModeKey] as bool?) ??
+      false;
+
+  static Future<void> setGuestMode(bool value) async {
+    if (_prefs != null) {
+      await _prefs!.setBool(_guestModeKey, value);
+    } else {
+      _memoryFallback[_guestModeKey] = value;
+    }
+  }
+
   // ─── GDPR — Clear all data ─────────────────────────────────────────────────
 
   static Future<void> clearAllData() async {
@@ -191,3 +422,4 @@ class StorageService {
     _memoryFallback.clear();
   }
 }
+

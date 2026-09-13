@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#1565C0</color>
+    <color name="ic_launcher_eye_stroke">#38BDF8</color>
+    <color name="ic_launcher_pupil">#0284C7</color>
+    <color name="ic_launcher_streak">#FBBF24</color>
+    <color name="ic_launcher_streak_core">#FFFBEB</color>
+</resources>

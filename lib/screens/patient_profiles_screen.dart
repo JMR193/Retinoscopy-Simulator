@@ -158,29 +158,141 @@ class _PatientProfilesScreenState extends State<PatientProfilesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Patient Profiles'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        actions: [
-          IconButton(
-            tooltip: 'Import Case (QR / Link)',
-            icon: const Icon(Icons.qr_code_scanner),
-            onPressed: _showImportDialog,
+    final List<PatientProfile> curatedCases = PatientProfile.getCuratedMasterLibrary();
+
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Patient Profiles & Clinical Cases'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.menu_book), text: 'Master Case Bank (10)'),
+              Tab(icon: Icon(Icons.person_add_alt_1), text: 'Custom Profiles'),
+            ],
+            indicatorColor: Colors.white,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
           ),
-        ],
+          actions: [
+            IconButton(
+              tooltip: 'Import Case (QR / Link)',
+              icon: const Icon(Icons.qr_code_scanner),
+              onPressed: _showImportDialog,
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          tooltip: 'Add Custom Profile',
+          onPressed: () {
+            _showAddEditDialog();
+          },
+          child: const Icon(Icons.add),
+        ),
+        body: TabBarView(
+          children: [
+            _buildCuratedCasesTab(curatedCases),
+            _buildCustomProfilesTab(),
+          ],
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showAddEditDialog();
-        },
-        child: const Icon(Icons.add),
-      ),
-      body: _buildBody(),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildCuratedCasesTab(List<PatientProfile> curatedCases) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: curatedCases.length,
+      itemBuilder: (BuildContext context, int index) {
+        final PatientProfile profile = curatedCases[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: ListTile(
+            contentPadding: const EdgeInsets.all(12),
+            onTap: () {
+              context.read<RetinoscopyState>().loadPatientRx(
+                    sphere: profile.sphere,
+                    cylinder: profile.cylinder,
+                    axis: profile.axis,
+                  );
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Loaded "${profile.name}" (${profile.formattedRx}) into simulator!'),
+                  backgroundColor: Colors.green[700],
+                ),
+              );
+            },
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+              child: Text('${index + 1}', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+            ),
+            title: Text(profile.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5)),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const SizedBox(height: 5),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    profile.formattedRx,
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Theme.of(context).colorScheme.primary),
+                  ),
+                ),
+                if (profile.notes.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    profile.notes,
+                    style: const TextStyle(fontSize: 12,  height: 1.3),
+                  ),
+                ],
+              ],
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                IconButton(
+                  tooltip: 'Share QR Code',
+                  icon: const Icon(Icons.qr_code_2, color: Colors.blue),
+                  onPressed: () {
+                    QrCodeDialog.show(context, profile);
+                  },
+                ),
+                FilledButton.tonalIcon(
+                  icon: const Icon(Icons.play_arrow, size: 16),
+                  label: const Text('Practice', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    context.read<RetinoscopyState>().loadPatientRx(
+                          sphere: profile.sphere,
+                          cylinder: profile.cylinder,
+                          axis: profile.axis,
+                        );
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Loaded "${profile.name}" into simulator!'),
+                        backgroundColor: Colors.green[700],
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCustomProfilesTab() {
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(),
@@ -189,27 +301,39 @@ class _PatientProfilesScreenState extends State<PatientProfilesScreen> {
 
     if (_profiles.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Icon(
-              Icons.people_outline,
-              size: 64,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            const Text('No patient profiles yet. Tap + to add one.'),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Icon(
+                Icons.people_outline,
+                size: 64,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+              const SizedBox(height: 16),
+              const Text('No custom patient profiles created yet.', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              const Text('Create unique patient prescriptions or import them via QR code.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.add),
+                label: const Text('Create New Patient Profile'),
+                onPressed: () => _showAddEditDialog(),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: _profiles.length,
       itemBuilder: (BuildContext context, int index) {
         final PatientProfile profile = _profiles[index];
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           child: ListTile(
             onTap: () {
               context.read<RetinoscopyState>().loadPatientRx(

@@ -92,6 +92,102 @@ class PatientProfile {
       return null;
     }
   }
+
+  /// Curated collection of 10 board-standard clinical cases for students & educators
+  static List<PatientProfile> getCuratedMasterLibrary() {
+    return [
+      PatientProfile(
+        id: 'curated_1',
+        name: 'Case 1: Baseline Emmetropia',
+        age: 22,
+        sphere: 0.0,
+        cylinder: 0.0,
+        axis: 90.0,
+        notes: 'Normal healthy student. Neutral reflex observed with working distance trial lens (+1.50 D for 67 cm) in place.',
+      ),
+      PatientProfile(
+        id: 'curated_2',
+        name: 'Case 2: Moderate Myopia',
+        age: 19,
+        sphere: -2.50,
+        cylinder: 0.0,
+        axis: 90.0,
+        notes: 'Complains of distance blur in lecture halls. Shows Against motion in all meridians without trial lenses.',
+      ),
+      PatientProfile(
+        id: 'curated_3',
+        name: 'Case 3: Latent Hyperopia',
+        age: 14,
+        sphere: 3.50,
+        cylinder: 0.0,
+        axis: 90.0,
+        notes: 'Asthenopia and frontal headaches after prolonged reading. Shows slow, wide With motion requiring high plus power.',
+      ),
+      PatientProfile(
+        id: 'curated_4',
+        name: 'Case 4: With-The-Rule (WTR) Astigmatism',
+        age: 28,
+        sphere: 1.00,
+        cylinder: -2.00,
+        axis: 180.0,
+        notes: 'Classic vertical meridian steeper than horizontal. Neutralize horizontal meridian first, then add minus cylinder at 180°.',
+      ),
+      PatientProfile(
+        id: 'curated_5',
+        name: 'Case 5: Against-The-Rule (ATR) Astigmatism',
+        age: 68,
+        sphere: -0.50,
+        cylinder: -2.25,
+        axis: 90.0,
+        notes: 'Elderly patient with horizontal corneal steepening. Notice break phenomenon when sweeping off 90°/180°.',
+      ),
+      PatientProfile(
+        id: 'curated_6',
+        name: 'Case 6: Oblique Astigmatism',
+        age: 34,
+        sphere: 2.00,
+        cylinder: -3.00,
+        axis: 45.0,
+        notes: 'Principal meridians oriented at 45° and 135°. Observe pronounced oblique skew and scissor shear.',
+      ),
+      PatientProfile(
+        id: 'curated_7',
+        name: 'Case 7: Keratoconus / Irregular Reflex',
+        age: 23,
+        sphere: -4.00,
+        cylinder: -4.50,
+        axis: 65.0,
+        notes: 'Advanced corneal ectasia. Observe central pinching scissors motion and asymmetric reflex brilliance.',
+      ),
+      PatientProfile(
+        id: 'curated_8',
+        name: 'Case 8: Pediatric Amblyopia Risk',
+        age: 4,
+        sphere: 5.50,
+        cylinder: -1.50,
+        axis: 90.0,
+        notes: 'High anisometropic hyperopia risk. Recommended to practice Mohindra near dark-room retinoscopy technique.',
+      ),
+      PatientProfile(
+        id: 'curated_9',
+        name: 'Case 9: Pseudophakic Monofocal IOL',
+        age: 72,
+        sphere: 0.50,
+        cylinder: -1.25,
+        axis: 105.0,
+        notes: 'Post-cataract surgery with sharp, bright reflex and small residual astigmatic cylinder.',
+      ),
+      PatientProfile(
+        id: 'curated_10',
+        name: 'Case 10: High Degenerative Myopia',
+        age: 45,
+        sphere: -9.50,
+        cylinder: -2.00,
+        axis: 15.0,
+        notes: 'Severe axial elongation with posterior staphyloma. Reflex is extremely fast and dim; add strong minus spheres first.',
+      ),
+    ];
+  }
 }
 
 class PatientProfileService {

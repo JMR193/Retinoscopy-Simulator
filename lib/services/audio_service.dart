@@ -1,5 +1,6 @@
-﻿import 'package:audioplayers/audioplayers.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 /// Clinical Audio & Sound Feedback Service — JMR Technologies
 /// Provides realistic auditory feedback for dial steppers, neutrality flash,
@@ -7,6 +8,7 @@ import 'package:flutter/foundation.dart';
 class AudioService {
   static final AudioPlayer _player = AudioPlayer();
   static bool soundEnabled = true;
+  static bool hapticsEnabled = true;
 
   static Future<void> init() async {
     try {
@@ -20,6 +22,9 @@ class AudioService {
 
   /// Play stepper click / dial tick
   static Future<void> playTick() async {
+    if (hapticsEnabled) {
+      HapticFeedback.selectionClick();
+    }
     if (!soundEnabled) return;
     try {
       await _player.stop();
@@ -31,6 +36,9 @@ class AudioService {
 
   /// Play incorrect answer buzzer
   static Future<void> playWrong() async {
+    if (hapticsEnabled) {
+      HapticFeedback.heavyImpact();
+    }
     if (!soundEnabled) return;
     try {
       await _player.stop();
@@ -42,6 +50,10 @@ class AudioService {
 
   /// Play success chime / neutrality flash tone
   static Future<void> playSuccess() async {
+    if (hapticsEnabled) {
+      HapticFeedback.lightImpact();
+      HapticFeedback.lightImpact();
+    }
     if (!soundEnabled) return;
     try {
       await _player.stop();

@@ -373,6 +373,35 @@ class _OpticsMathTab extends StatelessWidget {
         monospace: true,
       ),
       _Section(
+        icon: Icons.compress_outlined,
+        color: Colors.deepOrange,
+        title: 'Javal\'s Rule (Keratometry to Refraction)',
+        content:
+            'Predicts total refractive astigmatism from corneal curvature (K1, K2):\n\n'
+            '  Total Astigmatism = 1.25 × (K2 − K1) − 0.50 D ATR\n'
+            '  Corneal Radius r = 337.5 / K (mm)\n\n'
+            'Rules of Thumb:\n'
+            '• Direct With-the-Rule (WTR): Cornea provides majority of astigmatism.\n'
+            '• Against-the-Rule (ATR): Lenticular astigmatism (-0.50 D x 90°) adds to corneal cylinder.\n'
+            '• Oblique Astigmatism: Principal meridians tilted off 90°/180° by > 20°.',
+        monospace: true,
+      ),
+      _Section(
+        icon: Icons.blur_on,
+        color: Colors.purple,
+        title: 'Zernike Wavefront Aberrations & Strehl Ratio',
+        content:
+            'Wavefront error W(ρ,θ) decomposed into orthogonal Zernike polynomials Zn^m:\n\n'
+            '• Defocus RMS (Z2,0):  RMS_defocus = (Pupil² / 16√3) · |SE|\n'
+            '• Astigmatism RMS (Z2,±2): RMS_astig = (Pupil² / 16√6) · |Cyl|\n'
+            '• Strehl Ratio (Maréchal): Strehl ≈ exp(-(2π · RMS / λ)²)\n\n'
+            'Optical Quality Benchmarks:\n'
+            '• Strehl ≥ 0.80: Diffraction-limited (Crisp 20/15 acuity)\n'
+            '• Strehl ≥ 0.40: Normal physiological visual quality (20/20)\n'
+            '• Strehl < 0.15: Significant optical blur requiring correction.',
+        monospace: true,
+      ),
+      _Section(
         icon: Icons.timeline_outlined,
         color: Colors.red,
         title: 'Vernier / Stiles-Crawford Effect',

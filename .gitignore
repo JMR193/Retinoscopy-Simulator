@@ -1,4 +1,4 @@
-﻿# Flutter / Dart / Pub related
+# Flutter / Dart / Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
@@ -69,3 +69,7 @@ Desktop.ini
 *.bak
 *.swp
 *~
+
+# AI agent local skills and locks
+.agents/
+skills-lock.json
