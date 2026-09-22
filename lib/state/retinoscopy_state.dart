@@ -1062,13 +1062,22 @@ class RetinoscopyState extends ChangeNotifier {
 
     final double grossM2Axis = (grossM1Axis + 90.0) > 180.0 ? grossM1Axis - 90.0 : grossM1Axis + 90.0;
 
-    final double plusSphere = netM2;
-    final double plusCylinder = netM1 - netM2;
-    final double plusAxis = grossM1Axis;
+    // Determine lower and higher power meridians for mathematically rigorous spherocylinder form
+    final bool m1IsLower = netM1 <= netM2;
+    final double lowNet = m1IsLower ? netM1 : netM2;
+    final double lowAxis = m1IsLower ? grossM1Axis : grossM2Axis;
+    final double highNet = m1IsLower ? netM2 : netM1;
+    final double highAxis = m1IsLower ? grossM2Axis : grossM1Axis;
 
-    final double minusSphere = netM1;
-    final double minusCylinder = netM2 - netM1;
-    final double minusAxis = grossM2Axis;
+    // Plus-Cylinder Form (+Cyl): Base sphere is lower meridian (lowNet) at lowAxis; +Cyl = (highNet - lowNet) >= 0
+    final double plusSphere = lowNet;
+    final double plusCylinder = highNet - lowNet;
+    final double plusAxis = lowAxis;
+
+    // Minus-Cylinder Form (-Cyl): Base sphere is higher meridian (highNet) at highAxis; -Cyl = (lowNet - highNet) <= 0
+    final double minusSphere = highNet;
+    final double minusCylinder = lowNet - highNet;
+    final double minusAxis = highAxis;
 
     final double sphericalEquivalent = (netM1 + netM2) / 2.0;
 
@@ -1085,6 +1094,11 @@ class RetinoscopyState extends ChangeNotifier {
       'minusCylinder': minusCylinder,
       'minusAxis': minusAxis,
       'sphericalEquivalent': sphericalEquivalent,
+      'lowNet': lowNet,
+      'lowAxis': lowAxis,
+      'highNet': highNet,
+      'highAxis': highAxis,
+      'grossM2Axis': grossM2Axis,
     };
   }
 
@@ -1161,7 +1175,17 @@ class RetinoscopyState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Randomized Patient Generation for Test Mode ---
+  // --- 2-Meridian Optical Power Cross Live Display State ---
+  bool _isPowerCrossVisible = false;
+  bool get isPowerCrossVisible => _isPowerCrossVisible;
+  set isPowerCrossVisible(bool val) {
+    _isPowerCrossVisible = val;
+    notifyListeners();
+  }
+  void togglePowerCross() {
+    _isPowerCrossVisible = !_isPowerCrossVisible;
+    notifyListeners();
+  }
   void generateRandomPatient() {
     final random = Random();
     

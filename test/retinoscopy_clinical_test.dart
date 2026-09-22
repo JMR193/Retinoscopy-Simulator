@@ -423,6 +423,7 @@ void main() {
 
     test('23. Retinoscopy Answer Calculator Method (Dual Meridian M1/M2 solver)', () {
       // Gross M1 = +3.50 D @ 90°, Gross M2 = +1.50 D @ 180°, WD = +1.50 D (67 cm)
+      // Net M1 = +2.00 D @ 90°, Net M2 = 0.00 D @ 180°
       final answer = RetinoscopyState.calculateRetinoscopyAnswer(
         grossM1Power: 3.50,
         grossM1Axis: 90.0,
@@ -433,18 +434,45 @@ void main() {
       expect(answer['netM1'], equals(2.00));
       expect(answer['netM2'], equals(0.00));
 
-      // Plus Cylinder Form: +0.00 DS / +2.00 DC x 90°
+      // Plus Cylinder Form: 0.00 DS / +2.00 DC x 180° (Base sphere at lower meridian 180°, +cyl adds power along 90°)
       expect(answer['plusSphere'], equals(0.00));
       expect(answer['plusCylinder'], equals(2.00));
-      expect(answer['plusAxis'], equals(90.0));
+      expect(answer['plusAxis'], equals(180.0));
 
-      // Minus Cylinder Form: +2.00 DS / -2.00 DC x 180°
+      // Minus Cylinder Form: +2.00 DS / -2.00 DC x 90° (Base sphere at higher meridian 90°, -cyl subtracts power along 180°)
       expect(answer['minusSphere'], equals(2.00));
       expect(answer['minusCylinder'], equals(-2.00));
-      expect(answer['minusAxis'], equals(180.0));
+      expect(answer['minusAxis'], equals(90.0));
 
       // Spherical Equivalent: +1.00 DS
       expect(answer['sphericalEquivalent'], equals(1.00));
+    });
+
+    test('24. Retinoscopy Answer Calculator when M1 is lower power meridian', () {
+      // Gross M1 = +0.50 D @ 45°, Gross M2 = +3.00 D @ 135°, WD = +1.50 D
+      // Net M1 = -1.00 D @ 45°, Net M2 = +1.50 D @ 135°
+      final answer = RetinoscopyState.calculateRetinoscopyAnswer(
+        grossM1Power: 0.50,
+        grossM1Axis: 45.0,
+        grossM2Power: 3.00,
+        workingDistance: 1.50,
+      );
+
+      expect(answer['netM1'], equals(-1.00));
+      expect(answer['netM2'], equals(1.50));
+
+      // Plus Cylinder Form: -1.00 DS / +2.50 DC x 45°
+      expect(answer['plusSphere'], equals(-1.00));
+      expect(answer['plusCylinder'], equals(2.50));
+      expect(answer['plusAxis'], equals(45.0));
+
+      // Minus Cylinder Form: +1.50 DS / -2.50 DC x 135°
+      expect(answer['minusSphere'], equals(1.50));
+      expect(answer['minusCylinder'], equals(-2.50));
+      expect(answer['minusAxis'], equals(135.0));
+
+      // Spherical Equivalent: +0.25 DS
+      expect(answer['sphericalEquivalent'], equals(0.25));
     });
   });
 }

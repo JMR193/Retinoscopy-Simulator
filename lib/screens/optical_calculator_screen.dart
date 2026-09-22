@@ -75,26 +75,27 @@ class _OpticalCalculatorScreenState extends State<OpticalCalculatorScreen> {
       sphericalEquivalent = result['sphericalEquivalent'];
     } else {
       // Gross Spherocylinder Mode
-      final double grossM1Tmp = _grossSphere + _grossCylinder;
-      final double grossM2Tmp = _grossSphere;
-      m1Axis = (_grossAxis + 90.0) > 180.0 ? _grossAxis - 90.0 : _grossAxis + 90.0;
-      m2Axis = _grossAxis;
+      m1Axis = _grossAxis;
+      grossM1 = _grossSphere;
+      m2Axis = (_grossAxis + 90.0) > 180.0 ? _grossAxis - 90.0 : _grossAxis + 90.0;
+      grossM2 = _grossSphere + _grossCylinder;
 
-      grossM1 = grossM1Tmp;
-      grossM2 = grossM2Tmp;
+      final result = RetinoscopyState.calculateRetinoscopyAnswer(
+        grossM1Power: grossM1,
+        grossM1Axis: m1Axis,
+        grossM2Power: grossM2,
+        workingDistance: _workingDistance,
+      );
 
-      final double netSphere = _grossSphere - _workingDistance;
-      minusSphere = netSphere;
-      minusCylinder = _grossCylinder;
-      minusAxis = _grossAxis;
-
-      plusSphere = netSphere + _grossCylinder;
-      plusCylinder = -_grossCylinder;
-      plusAxis = m1Axis;
-
-      netM1 = grossM1 - _workingDistance;
-      netM2 = grossM2 - _workingDistance;
-      sphericalEquivalent = netSphere + (minusCylinder / 2.0);
+      netM1 = result['netM1'];
+      netM2 = result['netM2'];
+      plusSphere = result['plusSphere'];
+      plusCylinder = result['plusCylinder'];
+      plusAxis = result['plusAxis'];
+      minusSphere = result['minusSphere'];
+      minusCylinder = result['minusCylinder'];
+      minusAxis = result['minusAxis'];
+      sphericalEquivalent = result['sphericalEquivalent'];
     }
 
     return Scaffold(
@@ -431,12 +432,18 @@ class _OpticalCalculatorScreenState extends State<OpticalCalculatorScreen> {
                     '2. Deduct Working Distance (${_workingDistance.toStringAsFixed(2)} D):\n'
                     '   • Net M1 = (${grossM1 > 0 ? '+' : ''}${grossM1.toStringAsFixed(2)}) − ${_workingDistance.toStringAsFixed(2)} = ${netM1 > 0 ? '+' : ''}${netM1.toStringAsFixed(2)} D @ ${m1Axis.toInt()}°\n'
                     '   • Net M2 = (${grossM2 > 0 ? '+' : ''}${grossM2.toStringAsFixed(2)}) − ${_workingDistance.toStringAsFixed(2)} = ${netM2 > 0 ? '+' : ''}${netM2.toStringAsFixed(2)} D @ ${m2Axis.toInt()}°\n\n'
-                    '3. Plus-Cylinder Prescription:\n'
-                    '   • Sphere = Net M2 = ${plusSphere > 0 ? '+' : ''}${plusSphere.toStringAsFixed(2)} DS\n'
-                    '   • Cylinder = Net M1 − Net M2 = ${plusCylinder > 0 ? '+' : ''}${plusCylinder.toStringAsFixed(2)} DC × ${plusAxis.toInt()}°\n\n'
-                    '4. Minus-Cylinder Prescription:\n'
-                    '   • Sphere = Net M1 = ${minusSphere > 0 ? '+' : ''}${minusSphere.toStringAsFixed(2)} DS\n'
-                    '   • Cylinder = Net M2 − Net M1 = ${minusCylinder > 0 ? '+' : ''}${minusCylinder.toStringAsFixed(2)} DC × ${minusAxis.toInt()}°',
+                    '3. Plus-Cylinder Prescription (+Cyl Form):\n'
+                    '   • Select more negative / least positive meridian as base sphere:\n'
+                    '     Base Sphere = ${plusSphere > 0 ? '+' : ''}${plusSphere.toStringAsFixed(2)} DS (@ ${plusAxis.toInt()}°)\n'
+                    '   • Add positive difference as cylinder along base axis:\n'
+                    '     Cylinder = ${plusCylinder > 0 ? '+' : ''}${plusCylinder.toStringAsFixed(2)} DC × ${plusAxis.toInt()}°\n'
+                    '   • Prescription: ${plusSphere > 0 ? '+' : ''}${plusSphere.toStringAsFixed(2)} DS / ${plusCylinder > 0 ? '+' : ''}${plusCylinder.toStringAsFixed(2)} DC × ${plusAxis.toInt()}°\n\n'
+                    '4. Minus-Cylinder Prescription (-Cyl Form):\n'
+                    '   • Select more positive / least negative meridian as base sphere:\n'
+                    '     Base Sphere = ${minusSphere > 0 ? '+' : ''}${minusSphere.toStringAsFixed(2)} DS (@ ${minusAxis.toInt()}°)\n'
+                    '   • Subtract difference as negative cylinder along base axis:\n'
+                    '     Cylinder = ${minusCylinder.toStringAsFixed(2)} DC × ${minusAxis.toInt()}°\n'
+                    '   • Prescription: ${minusSphere > 0 ? '+' : ''}${minusSphere.toStringAsFixed(2)} DS / ${minusCylinder.toStringAsFixed(2)} DC × ${minusAxis.toInt()}°',
                     style: TextStyle(fontSize: 12.5, height: 1.5, color: isDark ? Colors.white70 : Colors.black87),
                   ),
                 ],

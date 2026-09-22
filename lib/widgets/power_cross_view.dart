@@ -8,6 +8,8 @@ class PowerCrossView extends StatelessWidget {
   final double cylinder;
   final double axis;
   final double workingDistance;
+  final String? title;
+  final VoidCallback? onClose;
 
   const PowerCrossView({
     super.key,
@@ -15,6 +17,8 @@ class PowerCrossView extends StatelessWidget {
     required this.cylinder,
     required this.axis,
     this.workingDistance = 0.0,
+    this.title,
+    this.onClose,
   });
 
   @override
@@ -27,15 +31,17 @@ class PowerCrossView extends StatelessWidget {
     final double gross1 = power1 + workingDistance;
     final double gross2 = power2 + workingDistance;
 
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: isDark ? const Color(0xFF0F172A) : const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.3)),
+        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.35)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
+            color: Colors.black.withValues(alpha: 0.35),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -44,16 +50,23 @@ class PowerCrossView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 children: [
-                  Icon(Icons.close, color: Colors.cyanAccent, size: 18),
-                  SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.cyanAccent.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.add_rounded, color: Colors.cyanAccent, size: 16),
+                  ),
+                  const SizedBox(width: 8),
                   Text(
-                    '2-Meridian Optical Power Cross',
-                    style: TextStyle(
+                    title ?? '2-Meridian Optical Power Cross',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
@@ -62,6 +75,14 @@ class PowerCrossView extends StatelessWidget {
                   ),
                 ],
               ),
+              if (onClose != null)
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 18),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Close Power Cross',
+                  onPressed: onClose,
+                ),
             ],
           ),
           const SizedBox(height: 12),

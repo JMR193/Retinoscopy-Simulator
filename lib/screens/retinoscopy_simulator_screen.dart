@@ -14,6 +14,7 @@ import '../widgets/optical_ray_diagram.dart';
 import '../widgets/thibos_vector_plot.dart';
 import '../widgets/copeland_straddle_view.dart';
 import '../widgets/protocol_guided_banner.dart';
+import '../widgets/power_cross_view.dart';
 import '../widgets/interactive_onboarding_overlay.dart';
 import '../widgets/score_card_generator.dart';
 import 'about_screen.dart';
@@ -330,6 +331,9 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                   case 'protocol':
                     _showInstructionsDialog(context);
                     break;
+                  case 'powercross':
+                    _state.togglePowerCross();
+                    break;
                   case 'presets':
                     _showAAOPresetsDialog(context);
                     break;
@@ -388,6 +392,20 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                     Icon(Icons.menu_book, color: Colors.teal, size: 18),
                     SizedBox(width: 10),
                     Text('AAO Clinical Protocol'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'powercross',
+                child: Row(
+                  children: [
+                    Icon(
+                      _state.isPowerCrossVisible ? Icons.check_circle : Icons.add_circle_outline,
+                      color: Colors.tealAccent,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(_state.isPowerCrossVisible ? 'Hide Optical Power Cross' : '2-Meridian Optical Cross'),
                   ],
                 ),
               ),
@@ -1631,12 +1649,12 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible)
+                          color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible || _state.isPowerCrossVisible)
                               ? Colors.cyan.withValues(alpha: 0.15)
                               : Colors.grey.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible)
+                            color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible || _state.isPowerCrossVisible)
                                 ? Colors.cyan
                                 : Colors.grey.withValues(alpha: 0.3),
                           ),
@@ -1644,14 +1662,14 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.auto_graph, size: 14, color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible) ? Colors.cyan : Colors.blueGrey),
+                            Icon(Icons.auto_graph, size: 14, color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible || _state.isPowerCrossVisible) ? Colors.cyan : Colors.blueGrey),
                             const SizedBox(width: 4),
                             Text(
                               'Optics Tools',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible) ? Colors.cyan.shade700 : null,
+                                color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible || _state.isPowerCrossVisible) ? Colors.cyan.shade700 : null,
                               ),
                             ),
                           ],
@@ -1662,6 +1680,8 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                           _state.toggleRayDiagram();
                         } else if (action == 'thibos') {
                           _state.toggleVectorPlot();
+                        } else if (action == 'powercross') {
+                          _state.togglePowerCross();
                         }
                       },
                       itemBuilder: (context) => [
@@ -1690,6 +1710,20 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                               ),
                               const SizedBox(width: 8),
                               const Text('Thibos (J0, J45) Vector Plot'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'powercross',
+                          child: Row(
+                            children: [
+                              Icon(
+                                _state.isPowerCrossVisible ? Icons.check_box : Icons.check_box_outline_blank,
+                                color: Colors.tealAccent,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              const Text('2-Meridian Optical Cross'),
                             ],
                           ),
                         ),
@@ -1805,6 +1839,25 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 trialJ45: _state.plusLensesSelected
                     ? -(_state.plusCylinder / 2) * math.sin(2 * _state.plusAxis * math.pi / 180)
                     : -(_state.minusCylinder / 2) * math.sin(2 * _state.minusAxis * math.pi / 180),
+              ),
+            ],
+            if (_state.isPowerCrossVisible) ...[
+              const SizedBox(height: 16),
+              PowerCrossView(
+                sphere: _state.isExploreMode
+                    ? _state.patientSphere
+                    : (_state.plusLensesSelected ? _state.plusSphere : _state.minusSphere),
+                cylinder: _state.isExploreMode
+                    ? _state.patientCylinder
+                    : (_state.plusLensesSelected ? _state.plusCylinder : _state.minusCylinder),
+                axis: _state.isExploreMode
+                    ? _state.patientAngle
+                    : (_state.plusLensesSelected ? _state.plusAxis : _state.minusAxis),
+                workingDistance: _state.workingDistance,
+                title: _state.isExploreMode
+                    ? 'Patient 2-Meridian Power Cross'
+                    : 'Dialed Trial Lens Power Cross',
+                onClose: () => _state.togglePowerCross(),
               ),
             ],
             const SizedBox(height: 16),
