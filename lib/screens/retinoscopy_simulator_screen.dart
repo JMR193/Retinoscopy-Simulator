@@ -38,9 +38,6 @@ class RetinoscopySimulatorScreen extends StatefulWidget {
 class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen> with TickerProviderStateMixin {
   late RetinoscopyState _state;
 
-  // Dark Room Mode
-  bool _isDarkRoomMode = false;
-
   // Auto-Sweep State
   bool _isAutoSweep = false;
   double _autoSweepSpeed = 1.0;
@@ -53,6 +50,14 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
   final TextEditingController _userSphere2Controller = TextEditingController();
   final TextEditingController _userCylinder2Controller = TextEditingController();
   final TextEditingController _userAxis2Controller = TextEditingController();
+
+  // Dual Meridian Neutral Point Inputs
+  final TextEditingController _m1PowerController = TextEditingController();
+  final TextEditingController _m1AxisController = TextEditingController();
+  final TextEditingController _m2PowerController = TextEditingController();
+  final TextEditingController _m2AxisController = TextEditingController();
+  bool _useDualMeridianEntry = true;
+  bool? _meridianTestResult;
 
   bool? _testResult;
   bool _showTestFeedback = false;
@@ -153,10 +158,103 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
     _userSphere2Controller.dispose();
     _userCylinder2Controller.dispose();
     _userAxis2Controller.dispose();
+    _m1PowerController.dispose();
+    _m1AxisController.dispose();
+    _m2PowerController.dispose();
+    _m2AxisController.dispose();
     super.dispose();
   }
 
+  void _calculateFinalRxFromMeridians({bool showFeedback = true}) {
+    final double? m1P = double.tryParse(_m1PowerController.text);
+    final double? m1A = double.tryParse(_m1AxisController.text);
+    final double? m2P = double.tryParse(_m2PowerController.text);
+    if (m1P == null || m1A == null || m2P == null) {
+      if (showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter Gross Powers and Meridian 1 Axis.')),
+        );
+      }
+      return;
+    }
+    final answer = RetinoscopyState.calculateRetinoscopyAnswer(
+      grossM1Power: m1P,
+      grossM1Axis: m1A,
+      grossM2Power: m2P,
+      workingDistance: _state.workingDistance,
+    );
+
+    _userSphere1Controller.text = (answer['plusSphere'] as double).toStringAsFixed(2);
+    _userCylinder1Controller.text = (answer['plusCylinder'] as double).toStringAsFixed(2);
+    _userAxis1Controller.text = (answer['plusAxis'] as double).toInt().toString();
+
+    _userSphere2Controller.text = (answer['minusSphere'] as double).toStringAsFixed(2);
+    _userCylinder2Controller.text = (answer['minusCylinder'] as double).toStringAsFixed(2);
+    _userAxis2Controller.text = (answer['minusAxis'] as double).toInt().toString();
+
+    if (_m2AxisController.text.trim().isEmpty) {
+      _m2AxisController.text = (answer['grossM2Axis'] as double).toInt().toString();
+    }
+
+    setState(() {});
+    if (showFeedback) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Calculated Final Net Rx (-${_state.workingDistance.toStringAsFixed(2)} D WD applied)! Form 1 & 2 populated.'),
+          backgroundColor: Colors.teal[700],
+        ),
+      );
+    }
+  }
+
+  void _captureCurrentLensToM1() {
+    final double currentPower = _state.plusLensesSelected ? _state.plusSphere : _state.minusSphere;
+    _m1PowerController.text = currentPower.toStringAsFixed(2);
+    _m1AxisController.text = _state.streakAngle.toInt().toString();
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Captured Meridian 1: ${_m1PowerController.text} DS @ ${_m1AxisController.text}°'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  void _captureCurrentLensToM2() {
+    final double currentPower = _state.plusLensesSelected ? _state.plusSphere : _state.minusSphere;
+    _m2PowerController.text = currentPower.toStringAsFixed(2);
+    _m2AxisController.text = _state.streakAngle.toInt().toString();
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Captured Meridian 2: ${_m2PowerController.text} DS @ ${_m2AxisController.text}°'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
   void _checkAnswer() {
+    // If in dual meridian mode and final Rx fields are empty, auto-calculate final Rx first
+    if (_useDualMeridianEntry && _userSphere1Controller.text.trim().isEmpty) {
+      _calculateFinalRxFromMeridians(showFeedback: false);
+    }
+
+    final double? m1P = double.tryParse(_m1PowerController.text);
+    final double? m1A = double.tryParse(_m1AxisController.text);
+    final double? m2P = double.tryParse(_m2PowerController.text);
+    final double? m2A = double.tryParse(_m2AxisController.text);
+
+    bool hasMeridianInput = (m1P != null && m1A != null && m2P != null && m2A != null);
+    bool meridianCorrect = false;
+    if (hasMeridianInput) {
+      meridianCorrect = _state.checkMeridianNeutralPoints(
+        userM1Power: m1P!,
+        userM1Axis: m1A!,
+        userM2Power: m2P!,
+        userM2Axis: m2A!,
+      );
+    }
+
     double s1 = double.tryParse(_userSphere1Controller.text) ?? 0.0;
     double c1 = double.tryParse(_userCylinder1Controller.text) ?? 0.0;
     double a1 = double.tryParse(_userAxis1Controller.text) ?? 0.0;
@@ -164,7 +262,8 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
     double c2 = double.tryParse(_userCylinder2Controller.text) ?? 0.0;
     double a2 = double.tryParse(_userAxis2Controller.text) ?? 0.0;
 
-    bool correct = _state.checkAnswer(
+    bool hasRxInput = _userSphere1Controller.text.trim().isNotEmpty && _userCylinder1Controller.text.trim().isNotEmpty;
+    bool rxCorrect = _state.checkAnswer(
       userSphere1: s1,
       userCylinder1: c1,
       userAxis1: a1,
@@ -172,6 +271,15 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
       userCylinder2: c2,
       userAxis2: a2,
     );
+
+    bool correct = false;
+    if (hasMeridianInput && hasRxInput) {
+      correct = meridianCorrect && rxCorrect;
+    } else if (hasMeridianInput) {
+      correct = meridianCorrect;
+    } else {
+      correct = rxCorrect;
+    }
 
     if (correct) {
       AudioService.playSuccess();
@@ -196,6 +304,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
 
     setState(() {
       _testResult = correct;
+      _meridianTestResult = hasMeridianInput ? meridianCorrect : null;
       _showTestFeedback = true;
     });
   }
@@ -220,76 +329,74 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
     _userSphere2Controller.clear();
     _userCylinder2Controller.clear();
     _userAxis2Controller.clear();
+    _m1PowerController.clear();
+    _m1AxisController.clear();
+    _m2PowerController.clear();
+    _m2AxisController.clear();
     setState(() {
       _showTestFeedback = false;
       _testResult = null;
+      _meridianTestResult = null;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final bool isDark = _state.isDarkMode || Theme.of(context).brightness == Brightness.dark;
 
-    return Theme(
-      data: _isDarkRoomMode ? ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: Colors.black,
-        appBarTheme: const AppBarTheme(backgroundColor: Colors.black, foregroundColor: Colors.white),
-      ) : Theme.of(context),
-      child: Scaffold(
-        appBar: AppBar(
-          title: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Retinoscopy Simulator',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 0.3),
-              ),
-              const SizedBox(height: 2),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreScreen())).then((_) {
-                    setState(() {});
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: _getEquippedStreakColor().withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: _getEquippedStreakColor().withValues(alpha: 0.6), width: 0.8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.tune, size: 11, color: _getEquippedStreakColor()),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${_state.sleeveUp ? 'Concave Mirror' : 'Plane Mirror'} • ${StorageService.getEquippedCosmetic()}',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: (_isDarkRoomMode || Theme.of(context).brightness == Brightness.dark || _state.isDarkMode)
-                              ? Colors.white
-                              : Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          centerTitle: true,
-          actions: [
-            IconButton(
-              icon: Icon(_isDarkRoomMode ? Icons.light_mode : Icons.dark_mode),
-              tooltip: 'Toggle Dark Room Mode',
-              onPressed: () {
-                setState(() {
-                  _isDarkRoomMode = !_isDarkRoomMode;
+    return Scaffold(
+      appBar: AppBar(
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Retinoscopy Simulator',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 0.3),
+            ),
+            const SizedBox(height: 2),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreScreen())).then((_) {
+                  setState(() {});
                 });
               },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _getEquippedStreakColor().withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _getEquippedStreakColor().withValues(alpha: 0.6), width: 0.8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.tune, size: 11, color: _getEquippedStreakColor()),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${_state.sleeveUp ? 'Concave Mirror' : 'Plane Mirror'} • ${StorageService.getEquippedCosmetic()}',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
+          ],
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(_state.isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            tooltip: _state.isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              _state.toggleDarkMode();
+            },
+          ),
             IconButton(
               icon: const Icon(Icons.shuffle),
               tooltip: 'Clinical Case Generator',
@@ -611,7 +718,6 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
           ),
         ],
       ),
-    ),
     );
   }
 
@@ -797,9 +903,46 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 ),
               ),
               const SizedBox(height: 14),
-              Text(
-                'Write Patient Net Prescription:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDarkMode ? Colors.white : Colors.black87),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _useDualMeridianEntry ? 'Enter Neutral Points (M1 & M2):' : 'Write Patient Net Prescription:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: isDarkMode ? Colors.white : Colors.black87),
+                  ),
+                  InkWell(
+                    onTap: () => setState(() => _useDualMeridianEntry = !_useDualMeridianEntry),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _useDualMeridianEntry
+                            ? (isDarkMode ? Colors.teal.withValues(alpha: 0.25) : Colors.teal[50])
+                            : (isDarkMode ? Colors.indigo.withValues(alpha: 0.25) : Colors.indigo[50]),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _useDualMeridianEntry ? Colors.teal : Colors.indigo,
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(_useDualMeridianEntry ? Icons.calculate_outlined : Icons.alt_route, size: 14, color: _useDualMeridianEntry ? Colors.tealAccent : Colors.indigoAccent),
+                          const SizedBox(width: 4),
+                          Text(
+                            _useDualMeridianEntry ? 'Dual Meridian Mode' : 'Direct Net Rx Mode',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               _buildTestRxFields(),
@@ -812,15 +955,17 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
 
   Widget _buildTestRxFields() {
     final bool isDarkMode = _state.isDarkMode;
-    Widget buildField(String label, TextEditingController controller, double min, double max) {
+
+    Widget buildField(String label, TextEditingController controller, double min, double max, {String? hint}) {
       return Expanded(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          padding: const EdgeInsets.symmetric(horizontal: 3.0),
           child: TextField(
             controller: controller,
             keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
             decoration: InputDecoration(
               labelText: label,
+              hintText: hint,
               labelStyle: TextStyle(fontSize: 11, color: isDarkMode ? Colors.white70 : Colors.black54),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -833,11 +978,112 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
       );
     }
 
+    final double activePower = _state.plusLensesSelected ? _state.plusSphere : _state.minusSphere;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (_useDualMeridianEntry) ...[
+          // Meridian 1 Card
+          Container(
+            padding: const EdgeInsets.all(10),
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Meridian 1 Neutral Point (Gross):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                    InkWell(
+                      onTap: _captureCurrentLensToM1,
+                      child: Text('Capture Active: ${activePower >= 0 ? '+' : ''}${activePower.toStringAsFixed(2)} @ ${_state.streakAngle.toInt()}°', style: const TextStyle(fontSize: 10.5, color: Colors.blue, fontWeight: FontWeight.w600, decoration: TextDecoration.underline)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    buildField('Gross Power (DS)', _m1PowerController, -20, 20, hint: '+2.00'),
+                    buildField('Axis (°)', _m1AxisController, 0, 180, hint: '90'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Meridian 2 Card
+          Container(
+            padding: const EdgeInsets.all(10),
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.purple.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Meridian 2 Neutral Point (Orthogonal):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
+                    InkWell(
+                      onTap: _captureCurrentLensToM2,
+                      child: Text('Capture Active: ${activePower >= 0 ? '+' : ''}${activePower.toStringAsFixed(2)} @ ${_state.streakAngle.toInt()}°', style: const TextStyle(fontSize: 10.5, color: Colors.purple, fontWeight: FontWeight.w600, decoration: TextDecoration.underline)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    buildField('Gross Power (DS)', _m2PowerController, -20, 20, hint: '+3.50'),
+                    buildField('Axis (°)', _m2AxisController, 0, 180, hint: '180'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Working distance & Convert Action
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: isDarkMode ? const Color(0xFF0F172A) : Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Working Distance: -${_state.workingDistance.toStringAsFixed(2)} D',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDarkMode ? Colors.white70 : Colors.black87),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _calculateFinalRxFromMeridians(showFeedback: true),
+                  icon: const Icon(Icons.flash_on, size: 14),
+                  label: const Text('Calculate Final Net Rx', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal[700],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        // Final Net Refraction Inputs (always accessible/editable)
         Text(
-          'Form 1 (Primary):',
+          'Final Net Prescription (Form 1 Primary):',
           style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.cyanAccent : Colors.indigo),
         ),
         const SizedBox(height: 4),
@@ -850,7 +1096,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
         ),
         const SizedBox(height: 8),
         Text(
-          'Form 2 (Transposed):',
+          'Final Net Prescription (Form 2 Transposed):',
           style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.amberAccent : Colors.teal),
         ),
         const SizedBox(height: 4),
@@ -925,31 +1171,47 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                       color: _testResult == true ? Colors.greenAccent : Colors.redAccent,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      _testResult == true ? 'Correct! Neutralization Verified.' : 'Incorrect Prescription. Check Transposition.',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: _testResult == true ? Colors.greenAccent : Colors.redAccent,
+                    Expanded(
+                      child: Text(
+                        _testResult == true
+                            ? 'Correct! Neutralization Verified in Both Meridians & Final Net Rx.'
+                            : 'Incorrect. Verify Neutral Points & Working Distance Deduction.',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: _testResult == true ? Colors.greenAccent : Colors.redAccent,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                if (_testResult == false) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Target Answers:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: isDarkMode ? Colors.white : Colors.red[900]),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Form 1: ${_formatRx(_state.correctSphere1, _state.correctCylinder1, _state.correctAxis1)}',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
-                  ),
-                  Text(
-                    'Form 2: ${_formatRx(_state.correctSphere2, _state.correctCylinder2, _state.correctAxis2)}',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
-                  ),
-                ],
+                const SizedBox(height: 10),
+                Text(
+                  'Clinical Target Neutral Points (Gross):',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDarkMode ? Colors.cyanAccent : Colors.indigo),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '• Meridian 1: ${_state.patientGrossM1 >= 0 ? '+' : ''}${_state.patientGrossM1.toStringAsFixed(2)} DS × ${_state.patientM1Axis.toInt()}° (Net: ${_state.patientNetM1 >= 0 ? '+' : ''}${_state.patientNetM1.toStringAsFixed(2)} DS)',
+                  style: TextStyle(fontSize: 11.5, color: isDarkMode ? Colors.white : Colors.black87),
+                ),
+                Text(
+                  '• Meridian 2: ${_state.patientGrossM2 >= 0 ? '+' : ''}${_state.patientGrossM2.toStringAsFixed(2)} DS × ${_state.patientM2Axis.toInt()}° (Net: ${_state.patientNetM2 >= 0 ? '+' : ''}${_state.patientNetM2.toStringAsFixed(2)} DS)',
+                  style: TextStyle(fontSize: 11.5, color: isDarkMode ? Colors.white : Colors.black87),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Target Final Net Prescription:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDarkMode ? Colors.amberAccent : Colors.teal),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '• Form 1 (+Cyl): ${_formatRx(_state.correctSphere1, _state.correctCylinder1, _state.correctAxis1)}',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
+                ),
+                Text(
+                  '• Form 2 (-Cyl): ${_formatRx(_state.correctSphere2, _state.correctCylinder2, _state.correctAxis2)}',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
+                ),
               ],
             ),
           ),
@@ -1535,229 +1797,276 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
             ),
             const SizedBox(height: 16),
             // Streamlined Retinoscope Streak & Clinical Tools Toolbar
-            Column(
-              children: [
-                // Primary Streak Collar Controls
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    // Auto-Sweep Controller
-                    ActionChip(
-                      avatar: Icon(
-                        _isAutoSweep ? Icons.pause_circle : Icons.play_circle,
-                        size: 16,
-                        color: _isAutoSweep ? Colors.amberAccent : Colors.blue,
-                      ),
-                      label: Text(
-                        _isAutoSweep ? 'Auto-Sweep ${_autoSweepSpeed}x' : 'Auto-Sweep',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: _isAutoSweep ? Colors.amberAccent : null,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F2F7),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Row 1: Streak Meridian & Collar Controls + Mirror Mode
+                  Row(
+                    children: [
+                      // Meridian Selection Chips
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              ChoiceChip(
+                                label: const Text('90° V', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                selected: (_state.streakAngle - 90.0).abs() < 1.0,
+                                visualDensity: VisualDensity.compact,
+                                onSelected: (_) => _state.streakAngle = 90.0,
+                              ),
+                              const SizedBox(width: 4),
+                              ChoiceChip(
+                                label: const Text('180° H', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                selected: (_state.streakAngle - 180.0).abs() < 1.0,
+                                visualDensity: VisualDensity.compact,
+                                onSelected: (_) => _state.streakAngle = 180.0,
+                              ),
+                              const SizedBox(width: 4),
+                              ActionChip(
+                                avatar: const Icon(Icons.flip, size: 14),
+                                label: const Text('Flip', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () => _state.flipStreakAxis90(),
+                              ),
+                              const SizedBox(width: 4),
+                              PopupMenuButton<double>(
+                                tooltip: 'Oblique Meridians',
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        (_state.streakAngle != 90 && _state.streakAngle != 180)
+                                            ? '${_state.streakAngle.toStringAsFixed(0)}°'
+                                            : 'Other',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: colorScheme.primary),
+                                      ),
+                                      const Icon(Icons.arrow_drop_down, size: 16),
+                                    ],
+                                  ),
+                                ),
+                                onSelected: (angle) => _state.streakAngle = angle,
+                                itemBuilder: (context) => const [
+                                  PopupMenuItem(value: 45.0, child: Text('45° Oblique Meridian')),
+                                  PopupMenuItem(value: 135.0, child: Text('135° Oblique Meridian')),
+                                  PopupMenuItem(value: 30.0, child: Text('30° Meridian')),
+                                  PopupMenuItem(value: 60.0, child: Text('60° Meridian')),
+                                  PopupMenuItem(value: 120.0, child: Text('120° Meridian')),
+                                  PopupMenuItem(value: 150.0, child: Text('150° Meridian')),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      backgroundColor: _isAutoSweep ? Colors.amber.withValues(alpha: 0.2) : null,
-                      onPressed: () {
-                        if (!_isAutoSweep) {
-                          _toggleAutoSweep();
-                        } else {
-                          if (_autoSweepSpeed == 1.0) {
-                            _setAutoSweepSpeed(1.5);
-                          } else if (_autoSweepSpeed == 1.5) {
-                            _setAutoSweepSpeed(2.0);
-                          } else {
+                      const SizedBox(width: 6),
+                      // Sleeve Mode Toggle (Plane vs Concave)
+                      FilterChip(
+                        avatar: Icon(_state.sleeveUp ? Icons.arrow_upward : Icons.arrow_downward, size: 14),
+                        label: Text(_state.sleeveUp ? 'Concave' : 'Plane', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        selected: _state.sleeveUp,
+                        visualDensity: VisualDensity.compact,
+                        onSelected: (val) => _state.sleeveUp = val,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  // Row 2: Working Distance & Auto-Sweep & Clinical Tools
+                  Row(
+                    children: [
+                      // Auto-Sweep Compact Toggle
+                      ActionChip(
+                        avatar: Icon(
+                          _isAutoSweep ? Icons.pause_circle : Icons.play_circle,
+                          size: 14,
+                          color: _isAutoSweep ? Colors.amberAccent : Colors.blue,
+                        ),
+                        label: Text(
+                          _isAutoSweep ? '${_autoSweepSpeed}x' : 'Auto',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: _isAutoSweep ? Colors.amberAccent : null,
+                          ),
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: _isAutoSweep ? Colors.amber.withValues(alpha: 0.2) : null,
+                        onPressed: () {
+                          if (!_isAutoSweep) {
                             _toggleAutoSweep();
-                            _setAutoSweepSpeed(1.0);
+                          } else {
+                            if (_autoSweepSpeed == 1.0) {
+                              _setAutoSweepSpeed(1.5);
+                            } else if (_autoSweepSpeed == 1.5) {
+                              _setAutoSweepSpeed(2.0);
+                            } else {
+                              _toggleAutoSweep();
+                              _setAutoSweepSpeed(1.0);
+                            }
                           }
-                        }
-                      },
-                    ),
-                    ActionChip(
-                      avatar: const Icon(Icons.swap_vert, size: 16),
-                      label: const Text('90° (V)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      backgroundColor: (_state.streakAngle - 90.0).abs() < 1.0 ? Colors.blue.withValues(alpha: 0.2) : null,
-                      onPressed: () => _state.streakAngle = 90.0,
-                    ),
-                    ActionChip(
-                      avatar: const Icon(Icons.swap_horiz, size: 16),
-                      label: const Text('180° (H)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      backgroundColor: (_state.streakAngle - 180.0).abs() < 1.0 ? Colors.blue.withValues(alpha: 0.2) : null,
-                      onPressed: () => _state.streakAngle = 180.0,
-                    ),
-                    ActionChip(
-                      avatar: const Icon(Icons.flip, size: 15),
-                      label: const Text('Flip 90°', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      onPressed: () => _state.flipStreakAxis90(),
-                    ),
-                    PopupMenuButton<double>(
-                      tooltip: 'Oblique Meridians',
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.tune, size: 14, color: Colors.blueGrey),
-                            SizedBox(width: 4),
-                            Text('Collar...', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                          ],
+                        },
+                      ),
+                      const SizedBox(width: 6),
+                      // Working Distance Segmented Choices
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              ChoiceChip(
+                                label: const Text('50cm', style: TextStyle(fontSize: 10.5)),
+                                selected: (_state.workingDistance - 2.00).abs() < 0.05,
+                                visualDensity: VisualDensity.compact,
+                                tooltip: '50 cm working distance (+2.00 D deduction)',
+                                onSelected: (_) => _state.setWorkingDistancePreset(50),
+                              ),
+                              const SizedBox(width: 4),
+                              ChoiceChip(
+                                label: const Text('67cm', style: TextStyle(fontSize: 10.5)),
+                                selected: (_state.workingDistance - 1.50).abs() < 0.05,
+                                visualDensity: VisualDensity.compact,
+                                tooltip: '67 cm working distance (+1.50 D deduction)',
+                                onSelected: (_) => _state.setWorkingDistancePreset(67),
+                              ),
+                              const SizedBox(width: 4),
+                              ChoiceChip(
+                                label: const Text('1m', style: TextStyle(fontSize: 10.5)),
+                                selected: (_state.workingDistance - 1.00).abs() < 0.05,
+                                visualDensity: VisualDensity.compact,
+                                tooltip: '1 m working distance (+1.00 D deduction)',
+                                onSelected: (_) => _state.setWorkingDistancePreset(100),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      onSelected: (angle) => _state.streakAngle = angle,
-                      itemBuilder: (context) => const [
-                        PopupMenuItem(value: 45.0, child: Text('45° Oblique Meridian')),
-                        PopupMenuItem(value: 135.0, child: Text('135° Oblique Meridian')),
-                        PopupMenuItem(value: 30.0, child: Text('30° Meridian')),
-                        PopupMenuItem(value: 60.0, child: Text('60° Meridian')),
-                        PopupMenuItem(value: 120.0, child: Text('120° Meridian')),
-                        PopupMenuItem(value: 150.0, child: Text('150° Meridian')),
-                      ],
-                    ),
-                    FilterChip(
-                      avatar: Icon(_state.sleeveUp ? Icons.arrow_upward : Icons.arrow_downward, size: 15),
-                      label: Text(_state.sleeveUp ? 'Concave Mirror' : 'Plane Mirror', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      selected: _state.sleeveUp,
-                      onSelected: (val) => _state.sleeveUp = val,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                // Clinical Protocol & Optical Analysis Tools Row
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    ActionChip(
-                      avatar: const Icon(Icons.menu_book, size: 15, color: Colors.greenAccent),
-                      label: const Text('Clinical Protocols', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      onPressed: () => _showProtocolSelectionDialog(context),
-                    ),
-                    ActionChip(
-                      avatar: const Icon(Icons.explore, size: 15, color: Colors.orangeAccent),
-                      label: const Text('Copeland Straddle (±45°)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      onPressed: () => _showCopelandStraddleModal(context),
-                    ),
-                    PopupMenuButton<String>(
-                      tooltip: 'Ray Optics & Vector Analysis',
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible || _state.isPowerCrossVisible)
-                              ? Colors.cyan.withValues(alpha: 0.15)
-                              : Colors.grey.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
+                      const SizedBox(width: 6),
+                      // Consolidated Tools Menu
+                      PopupMenuButton<String>(
+                        tooltip: 'Clinical Tools, Protocols & Optics',
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          decoration: BoxDecoration(
                             color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible || _state.isPowerCrossVisible)
-                                ? Colors.cyan
-                                : Colors.grey.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.auto_graph, size: 14, color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible || _state.isPowerCrossVisible) ? Colors.cyan : Colors.blueGrey),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Optics Tools',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible || _state.isPowerCrossVisible) ? Colors.cyan.shade700 : null,
-                              ),
+                                ? Colors.cyan.withValues(alpha: 0.18)
+                                : (isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05)),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible || _state.isPowerCrossVisible)
+                                  ? Colors.cyan
+                                  : Colors.transparent,
                             ),
-                          ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.tune,
+                                size: 14,
+                                color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible || _state.isPowerCrossVisible)
+                                    ? Colors.cyan
+                                    : colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Tools',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: (_state.isRayDiagramVisible || _state.isVectorPlotVisible || _state.isPowerCrossVisible)
+                                      ? Colors.cyan
+                                      : colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const Icon(Icons.arrow_drop_down, size: 16),
+                            ],
+                          ),
                         ),
+                        onSelected: (action) {
+                          if (action == 'protocol') {
+                            _showProtocolSelectionDialog(context);
+                          } else if (action == 'straddle') {
+                            _showCopelandStraddleModal(context);
+                          } else if (action == 'ray') {
+                            _state.toggleRayDiagram();
+                          } else if (action == 'thibos') {
+                            _state.toggleVectorPlot();
+                          } else if (action == 'powercross') {
+                            _state.togglePowerCross();
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'protocol',
+                            child: Row(
+                              children: [
+                                Icon(Icons.menu_book, color: Colors.green, size: 18),
+                                SizedBox(width: 8),
+                                Text('Clinical Protocols (AAO)'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'straddle',
+                            child: Row(
+                              children: [
+                                Icon(Icons.explore, color: Colors.orange, size: 18),
+                                SizedBox(width: 8),
+                                Text('Copeland Straddle (±45°)'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuDivider(),
+                          PopupMenuItem(
+                            value: 'ray',
+                            child: Row(
+                              children: [
+                                Icon(_state.isRayDiagramVisible ? Icons.check_box : Icons.check_box_outline_blank, color: Colors.cyan, size: 18),
+                                const SizedBox(width: 8),
+                                const Text('2D Ray Tracing Diagram'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'thibos',
+                            child: Row(
+                              children: [
+                                Icon(_state.isVectorPlotVisible ? Icons.check_box : Icons.check_box_outline_blank, color: Colors.purple, size: 18),
+                                const SizedBox(width: 8),
+                                const Text('Thibos Vector Plot'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'powercross',
+                            child: Row(
+                              children: [
+                                Icon(_state.isPowerCrossVisible ? Icons.check_box : Icons.check_box_outline_blank, color: Colors.tealAccent, size: 18),
+                                const SizedBox(width: 8),
+                                const Text('2-Meridian Optical Cross'),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      onSelected: (action) {
-                        if (action == 'ray') {
-                          _state.toggleRayDiagram();
-                        } else if (action == 'thibos') {
-                          _state.toggleVectorPlot();
-                        } else if (action == 'powercross') {
-                          _state.togglePowerCross();
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: 'ray',
-                          child: Row(
-                            children: [
-                              Icon(
-                                _state.isRayDiagramVisible ? Icons.check_box : Icons.check_box_outline_blank,
-                                color: Colors.cyan,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              const Text('2D Ray Tracing Diagram'),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: 'thibos',
-                          child: Row(
-                            children: [
-                              Icon(
-                                _state.isVectorPlotVisible ? Icons.check_box : Icons.check_box_outline_blank,
-                                color: Colors.purple,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              const Text('Thibos (J0, J45) Vector Plot'),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: 'powercross',
-                          child: Row(
-                            children: [
-                              Icon(
-                                _state.isPowerCrossVisible ? Icons.check_box : Icons.check_box_outline_blank,
-                                color: Colors.tealAccent,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              const Text('2-Meridian Optical Cross'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // Working Distance Quick Chips
-            Wrap(
-              alignment: WrapAlignment.center,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                const Text('Working Dist: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-                ChoiceChip(
-                  label: const Text('50 cm (+2.00 D)', style: TextStyle(fontSize: 11)),
-                  selected: (_state.workingDistance - 2.00).abs() < 0.05,
-                  onSelected: (_) => _state.setWorkingDistancePreset(50),
-                ),
-                ChoiceChip(
-                  label: const Text('67 cm (+1.50 D)', style: TextStyle(fontSize: 11)),
-                  selected: (_state.workingDistance - 1.50).abs() < 0.05,
-                  onSelected: (_) => _state.setWorkingDistancePreset(67),
-                ),
-                ChoiceChip(
-                  label: const Text('1 m (+1.00 D)', style: TextStyle(fontSize: 11)),
-                  selected: (_state.workingDistance - 1.00).abs() < 0.05,
-                  onSelected: (_) => _state.setWorkingDistancePreset(100),
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             // Simulation feedback stats & Neutrality Flash Banner
@@ -2943,12 +3252,12 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                   dense: true,
                   visualDensity: VisualDensity.compact,
                   leading: const Icon(Icons.quiz_rounded, color: Colors.orange),
-                  title: const Text('Clinical Board Exam & History', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                  title: const Text('Clinical Board Exam', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
                   subtitle: const Text('10-case assessment & certification', style: TextStyle(fontSize: 11)),
                   trailing: const Icon(Icons.chevron_right, size: 18),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ExamScreen()));
+                    context.read<RetinoscopyState>().requestAppTab(1);
                   },
                 ),
                 ListTile(
@@ -2996,7 +3305,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                   trailing: const Icon(Icons.chevron_right, size: 18),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const HandbookScreen()));
+                    context.read<RetinoscopyState>().requestAppTab(3);
                   },
                 ),
                 ListTile(
@@ -3008,7 +3317,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                   trailing: const Icon(Icons.chevron_right, size: 18),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const PatientProfilesScreen()));
+                    context.read<RetinoscopyState>().requestAppTab(2);
                   },
                 ),
 

@@ -217,6 +217,17 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    final retinoscopyState = context.watch<RetinoscopyState>();
+    if (retinoscopyState.requestedAppTab != null) {
+      final targetTab = retinoscopyState.requestedAppTab!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _selectedIndex != targetTab) {
+          setState(() => _selectedIndex = targetTab);
+        }
+        retinoscopyState.clearRequestedAppTab();
+      });
+    }
+
     final colorScheme = Theme.of(context).colorScheme;
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;

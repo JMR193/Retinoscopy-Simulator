@@ -14,15 +14,13 @@ class HandbookScreen extends StatelessWidget {
         backgroundColor: colorScheme.surface,
         appBar: AppBar(
           title: const Text('Clinical Handbook'),
-          backgroundColor: colorScheme.primary,
-          foregroundColor: colorScheme.onPrimary,
           elevation: 0,
           bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            indicatorColor: Colors.white,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white60,
+            indicatorColor: colorScheme.primary,
+            labelColor: colorScheme.primary,
+            unselectedLabelColor: colorScheme.onSurfaceVariant,
             labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             tabs: const [
               Tab(icon: Icon(Icons.science_outlined), text: 'Physics'),

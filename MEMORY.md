@@ -49,3 +49,17 @@ Given two orthogonal principal meridians $M_1$ at axis $\alpha_1$ and $M_2$ at a
 ## 4. Architectural Decisions & Quality Gates
 - **Dart Analysis**: Must always pass with 0 errors and 0 warnings (`dart analyze lib test`).
 - **Test Suite**: Comprehensive optical suite in `test/retinoscopy_clinical_test.dart` covers Emmetropia, Hyperopia, Myopia, WTR/ATR, Break phenomenon, Copeland straddle, Mohindra pediatric, Thibos vectors, JCC, and Dual Meridian solvers.
+
+---
+
+## 5. Dual Meridian Neutral Points & Reactive Navigation (Update 2026-09)
+- **Neutral Points vs. Final Net Rx**:
+  - Clinicians dial gross neutralizing lenses ($M_1, M_2$) along orthogonal meridians.
+  - State provides `patientGrossM1`, `patientM1Axis`, `patientGrossM2`, `patientM2Axis`, `patientNetM1`, `patientNetM2`.
+  - `checkMeridianNeutralPoints(...)` verifies gross powers with tolerance and supports inverted input order.
+  - Test mode allows toggling between **Dual Meridian Mode** (M1/M2 gross power + axis) and **Direct Net Rx Mode** (Form 1 & 2), with one-tap conversion via `calculateRetinoscopyAnswer(...)`.
+- **Global Reactive Navigation**:
+  - `RetinoscopyState.requestAppTab(int)` / `clearRequestedAppTab()` allows decoupled tab switching from child views/drawers to `AppShell`.
+  - `PatientProfilesScreen` guards `Navigator.pop()` with `canPop()` and requests Tab 0 (Simulator) on Practice click.
+  - `HistoryScreen` uses `StorageService.getHistory()` dynamically on build and provides `RefreshIndicator`.
+

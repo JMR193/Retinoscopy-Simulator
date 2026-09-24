@@ -200,6 +200,11 @@ class RetinoscopyState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Toggle dark mode and persist to storage
+  void toggleDarkMode() {
+    isDarkMode = !_isDarkMode;
+  }
+
   bool _pupilDilated = true;
   bool get pupilDilated => _pupilDilated;
   set pupilDilated(bool val) {
@@ -1307,6 +1312,79 @@ class RetinoscopyState extends ChangeNotifier {
                             checkPair(userSphere2, userCylinder2, userAxis2, correctSphere1, correctCylinder1, correctAxis1);
 
     return isStandardMatch || isTransposedMatch;
+  }
+
+  // ── Neutral Points for Both Principal Meridians ─────────────────────────
+
+  /// Gross Neutral Lens power for Principal Meridian 1 (Axis = patientAngle)
+  double get patientGrossM1 => _patientSphere + _workingDistance;
+
+  /// Axis of Principal Meridian 1
+  double get patientM1Axis => _patientAngle;
+
+  /// Gross Neutral Lens power for Principal Meridian 2 (Axis = patientAngle + 90)
+  double get patientGrossM2 => _patientSphere + _patientCylinder + _workingDistance;
+
+  /// Axis of Principal Meridian 2 (orthogonal to M1)
+  double get patientM2Axis {
+    double a = _patientAngle + 90.0;
+    if (a > 180.0) a -= 180.0;
+    return a;
+  }
+
+  /// Net power for Meridian 1 (Gross M1 - Working Distance)
+  double get patientNetM1 => _patientSphere;
+
+  /// Net power for Meridian 2 (Gross M2 - Working Distance)
+  double get patientNetM2 => _patientSphere + _patientCylinder;
+
+  /// Validates user-entered Gross Neutral Points for both meridians
+  bool checkMeridianNeutralPoints({
+    required double userM1Power,
+    required double userM1Axis,
+    required double userM2Power,
+    required double userM2Axis,
+  }) {
+    final double targetM1Power = patientGrossM1;
+    final double targetM1Axis = patientM1Axis;
+    final double targetM2Power = patientGrossM2;
+    final double targetM2Axis = patientM2Axis;
+
+    bool checkPair(double p, double a, double refP, double refA) {
+      if ((patientGrossM1 - patientGrossM2).abs() < 0.05) {
+        // Pure spherical case: any axis is valid
+        return (p - refP).abs() < 0.13;
+      }
+      final double diff = calculateAxisDifference(a, refA);
+      final double axisTol = (_patientCylinder.abs() >= 0.50) ? 5.0 : 10.0;
+      return (p - refP).abs() < 0.13 && diff <= axisTol;
+    }
+
+    final bool matchStandard = checkPair(userM1Power, userM1Axis, targetM1Power, targetM1Axis) &&
+                               checkPair(userM2Power, userM2Axis, targetM2Power, targetM2Axis);
+
+    final bool matchInverted = checkPair(userM1Power, userM1Axis, targetM2Power, targetM2Axis) &&
+                               checkPair(userM2Power, userM2Axis, targetM1Power, targetM1Axis);
+
+    return matchStandard || matchInverted;
+  }
+
+
+  // ── Global App Navigation Request ─────────────────────────────────────────
+  int? _requestedAppTab;
+  int? get requestedAppTab => _requestedAppTab;
+
+  /// Request switching the primary AppShell tab (0: Simulator, 1: Exam, 2: Cases, 3: Handbook, 4: History)
+  void requestAppTab(int tabIndex) {
+    if (_requestedAppTab != tabIndex) {
+      _requestedAppTab = tabIndex;
+      notifyListeners();
+    }
+  }
+
+  /// Reset requested tab after AppShell consumes the navigation request
+  void clearRequestedAppTab() {
+    _requestedAppTab = null;
   }
 }
 

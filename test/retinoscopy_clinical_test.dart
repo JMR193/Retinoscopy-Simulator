@@ -474,5 +474,81 @@ void main() {
       // Spherical Equivalent: +0.25 DS
       expect(answer['sphericalEquivalent'], equals(0.25));
     });
+
+    test('25. Global App Navigation Request Signal', () {
+      expect(state.requestedAppTab, isNull);
+      state.requestAppTab(2);
+      expect(state.requestedAppTab, equals(2));
+      state.clearRequestedAppTab();
+      expect(state.requestedAppTab, isNull);
+    });
+
+    test('26. Dual Meridian Neutral Points Validation & Final Rx Derivation', () {
+      // Patient Rx: +1.00 DS / -2.00 DC x 90° (Net M1: +1.00 @ 90°, Net M2: -1.00 @ 180°)
+      // Working Distance = +1.50 D
+      // Gross M1 (Neutral Point 1): +1.00 + 1.50 = +2.50 D @ 90°
+      // Gross M2 (Neutral Point 2): -1.00 + 1.50 = +0.50 D @ 180°
+      state.loadPatientRx(sphere: 1.00, cylinder: -2.00, axis: 90.0);
+      state.workingDistance = 1.50;
+
+      expect(state.patientGrossM1, closeTo(2.50, 0.001));
+      expect(state.patientM1Axis, equals(90.0));
+      expect(state.patientGrossM2, closeTo(0.50, 0.001));
+      expect(state.patientM2Axis, equals(180.0));
+      expect(state.patientNetM1, closeTo(1.00, 0.001));
+      expect(state.patientNetM2, closeTo(-1.00, 0.001));
+
+      // Test standard order: M1 = +2.50 @ 90°, M2 = +0.50 @ 180°
+      expect(
+        state.checkMeridianNeutralPoints(
+          userM1Power: 2.50,
+          userM1Axis: 90.0,
+          userM2Power: 0.50,
+          userM2Axis: 180.0,
+        ),
+        isTrue,
+      );
+
+      // Test transposed order: M1 = +0.50 @ 180°, M2 = +2.50 @ 90°
+      expect(
+        state.checkMeridianNeutralPoints(
+          userM1Power: 0.50,
+          userM1Axis: 180.0,
+          userM2Power: 2.50,
+          userM2Axis: 90.0,
+        ),
+        isTrue,
+      );
+
+      // Test incorrect power
+      expect(
+        state.checkMeridianNeutralPoints(
+          userM1Power: 3.50,
+          userM1Axis: 90.0,
+          userM2Power: 0.50,
+          userM2Axis: 180.0,
+        ),
+        isFalse,
+      );
+
+      // Test calculateRetinoscopyAnswer derives Final Rx from these neutral points
+      final finalRx = RetinoscopyState.calculateRetinoscopyAnswer(
+        grossM1Power: 2.50,
+        grossM1Axis: 90.0,
+        grossM2Power: 0.50,
+        workingDistance: 1.50,
+      );
+
+      // Low net is -1.00 @ 180°, High net is +1.00 @ 90°
+      // Form 1 (+Cyl): -1.00 DS / +2.00 DC x 180°
+      expect(finalRx['plusSphere'], equals(-1.00));
+      expect(finalRx['plusCylinder'], equals(2.00));
+      expect(finalRx['plusAxis'], equals(180.0));
+
+      // Form 2 (-Cyl): +1.00 DS / -2.00 DC x 90°
+      expect(finalRx['minusSphere'], equals(1.00));
+      expect(finalRx['minusCylinder'], equals(-2.00));
+      expect(finalRx['minusAxis'], equals(90.0));
+    });
   });
 }

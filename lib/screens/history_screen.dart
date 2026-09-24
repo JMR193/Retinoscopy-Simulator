@@ -107,6 +107,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
+    _history = StorageService.getHistory();
     final totalTests = StorageService.getTotalTests();
     final totalCorrect = StorageService.getTotalCorrect();
     final accuracy = StorageService.getAccuracyPercent();
@@ -210,84 +211,94 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
                 // ── History List ──────────────────────────────────────────
                 Expanded(
-                  child: _history.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                  child: RefreshIndicator(
+                    onRefresh: () async {
+                      _loadHistory();
+                    },
+                    child: _history.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
                             children: [
+                              SizedBox(height: MediaQuery.of(context).size.height * 0.12),
                               Icon(Icons.history, size: 64, color: isDark ? Colors.white24 : Colors.grey[300]),
                               const SizedBox(height: 16),
                               Text(
                                 'No test history yet.',
+                                textAlign: TextAlign.center,
                                 style: theme.textTheme.titleMedium?.copyWith(color: isDark ? Colors.white70 : Colors.grey[500]),
                               ),
                               const SizedBox(height: 8),
-                              Text(
-                                'Switch to Test Mode and complete a case\nto see your results here.',
-                                style: theme.textTheme.bodySmall?.copyWith(color: isDark ? Colors.white38 : Colors.grey[400]),
-                                textAlign: TextAlign.center,
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 32),
+                                child: Text(
+                                  'Switch to Test Mode and complete a case\nto see your results here.',
+                                  style: theme.textTheme.bodySmall?.copyWith(color: isDark ? Colors.white38 : Colors.grey[400]),
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
                             ],
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          itemCount: _history.length,
-                          itemBuilder: (context, i) {
-                            final entry = _history[i];
-                            final correct = entry['correct'] as bool;
-                            final sphere = (entry['sphere'] as num).toDouble();
-                            final cylinder = (entry['cylinder'] as num).toDouble();
-                            final axis = (entry['axis'] as num).toDouble();
-                            final timestamp = _formatTimestamp(entry['timestamp'] as String? ?? '');
+                          )
+                        : ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            itemCount: _history.length,
+                            itemBuilder: (context, i) {
+                              final entry = _history[i];
+                              final correct = entry['correct'] as bool;
+                              final sphere = (entry['sphere'] as num).toDouble();
+                              final cylinder = (entry['cylinder'] as num).toDouble();
+                              final axis = (entry['axis'] as num).toDouble();
+                              final timestamp = _formatTimestamp(entry['timestamp'] as String? ?? '');
 
-                            return Card(
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              elevation: 1,
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: isDark
-                                      ? (correct ? Colors.green.withValues(alpha: 0.18) : Colors.red.withValues(alpha: 0.18))
-                                      : (correct ? Colors.green[50] : Colors.red[50]),
-                                  child: Icon(
-                                    correct ? Icons.check : Icons.close,
-                                    color: isDark
-                                        ? (correct ? Colors.greenAccent : Colors.redAccent)
-                                        : (correct ? Colors.green[700] : Colors.red[700]),
-                                  ),
-                                ),
-                                title: Text(
-                                  _formatRx(sphere, cylinder, axis),
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                ),
-                                subtitle: Text(
-                                  timestamp,
-                                  style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : Colors.grey[500]),
-                                ),
-                                trailing: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? (correct ? Colors.green.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2))
+                              return Card(
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 1,
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: isDark
+                                        ? (correct ? Colors.green.withValues(alpha: 0.25) : Colors.red.withValues(alpha: 0.25))
                                         : (correct ? Colors.green[100] : Colors.red[100]),
-                                    borderRadius: BorderRadius.circular(8),
+                                    child: Icon(
+                                      correct ? Icons.check_circle : Icons.cancel,
+                                      color: correct ? Colors.green : Colors.red,
+                                    ),
                                   ),
-                                  child: Text(
-                                    correct ? 'Correct' : 'Incorrect',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
+                                  title: Text(
+                                    _formatRx(sphere, cylinder, axis),
+                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                                  ),
+                                  subtitle: Text(timestamp, style: const TextStyle(fontSize: 11)),
+                                  trailing: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
                                       color: isDark
-                                          ? (correct ? Colors.greenAccent : Colors.redAccent)
-                                          : (correct ? Colors.green[800] : Colors.red[800]),
+                                          ? (correct ? Colors.green.withValues(alpha: 0.15) : Colors.red.withValues(alpha: 0.15))
+                                          : (correct ? Colors.green[50] : Colors.red[50]),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: isDark
+                                            ? (correct ? Colors.greenAccent.withValues(alpha: 0.4) : Colors.redAccent.withValues(alpha: 0.4))
+                                            : (correct ? Colors.green : Colors.red),
+                                        width: 0.8,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      correct ? 'CORRECT' : 'INCORRECT',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark
+                                            ? (correct ? Colors.greenAccent : Colors.redAccent)
+                                            : (correct ? Colors.green[800] : Colors.red[800]),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
-                        ),
+                              );
+                            },
+                          ),
+                  ),
                 ),
               ],
             ),

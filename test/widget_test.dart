@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:retinoscopy_simulator/screens/about_screen.dart';
 import 'package:retinoscopy_simulator/screens/store_screen.dart';
 import 'package:retinoscopy_simulator/services/storage_service.dart';
@@ -8,6 +9,13 @@ import 'package:retinoscopy_simulator/widgets/power_cross_view.dart';
 void main() {
   setUp(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
+    PackageInfo.setMockInitialValues(
+      appName: 'Retinoscopy Simulator',
+      packageName: 'com.jmr.retinoscopy',
+      version: '2.5.0',
+      buildNumber: '1',
+      buildSignature: '',
+    );
     await StorageService.init();
   });
 
@@ -36,7 +44,7 @@ void main() {
     expect(find.text('Daylight Clinical LED (5500K)'), findsOneWidget);
 
     final cobaltFinder = find.text('Cobalt Contrast Filter');
-    await tester.scrollUntilVisible(cobaltFinder, 100);
+    await tester.ensureVisible(cobaltFinder);
     expect(cobaltFinder, findsOneWidget);
   });
 

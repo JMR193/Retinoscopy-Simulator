@@ -15,7 +15,7 @@ class AudioService {
       await _player.setReleaseMode(ReleaseMode.stop);
     } catch (e) {
       if (kDebugMode) {
-        print('AudioService init error: ');
+        debugPrint('AudioService init error: $e');
       }
     }
   }

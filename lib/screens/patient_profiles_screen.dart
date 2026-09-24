@@ -218,7 +218,10 @@ class _PatientProfilesScreenState extends State<PatientProfilesScreen> {
                     cylinder: profile.cylinder,
                     axis: profile.axis,
                   );
-              Navigator.of(context).pop();
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+              context.read<RetinoscopyState>().requestAppTab(0);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Loaded "${profile.name}" (${profile.formattedRx}) into simulator!'),
@@ -275,7 +278,10 @@ class _PatientProfilesScreenState extends State<PatientProfilesScreen> {
                           cylinder: profile.cylinder,
                           axis: profile.axis,
                         );
-                    Navigator.of(context).pop();
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
+                    context.read<RetinoscopyState>().requestAppTab(0);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Loaded "${profile.name}" into simulator!'),
@@ -341,7 +347,10 @@ class _PatientProfilesScreenState extends State<PatientProfilesScreen> {
                     cylinder: profile.cylinder,
                     axis: profile.axis,
                   );
-              Navigator.of(context).pop();
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+              context.read<RetinoscopyState>().requestAppTab(0);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Loaded "${profile.name}" (${profile.formattedRx}) into simulator!'),
@@ -393,7 +402,10 @@ class _PatientProfilesScreenState extends State<PatientProfilesScreen> {
                           cylinder: profile.cylinder,
                           axis: profile.axis,
                         );
-                    Navigator.of(context).pop();
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
+                    context.read<RetinoscopyState>().requestAppTab(0);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Loaded "${profile.name}" into simulator!'),
