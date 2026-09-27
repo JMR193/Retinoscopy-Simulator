@@ -260,7 +260,7 @@ class StorageService {
     }
   }
 
-  // ─── Gamification: XP & Gems ─────────────────────────────────────────────────
+  // ─── Gamification & CME: Clinical Experience Points (XP) ───────────────────
   static const String _xpKey = 'user_xp_v1';
   static const String _gemsKey = 'user_gems_v1';
 
@@ -274,9 +274,10 @@ class StorageService {
     } else {
       _memoryFallback[_xpKey] = current + amount;
     }
-    CloudSyncService.syncLocalDataToCloud(getXp(), getGems(), getStudyStreak(), getUserName());
+    CloudSyncService.syncLocalDataToCloud(getXp(), getStudyStreak(), getUserName(), gems: getGems());
   }
 
+  /// Legacy compatibility for stored gems (deprecated in favor of clinical CME points)
   static int getGems() =>
       _prefs?.getInt(_gemsKey) ?? (_memoryFallback[_gemsKey] as int?) ?? 0;
 
@@ -287,7 +288,7 @@ class StorageService {
     } else {
       _memoryFallback[_gemsKey] = current + amount;
     }
-    CloudSyncService.syncLocalDataToCloud(getXp(), getGems(), getStudyStreak(), getUserName());
+    CloudSyncService.syncLocalDataToCloud(getXp(), getStudyStreak(), getUserName(), gems: current + amount);
   }
 
   // ─── Gamification: Store & Cosmetics ───────────────────────────────────────

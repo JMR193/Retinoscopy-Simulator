@@ -15,6 +15,9 @@ import '../widgets/thibos_vector_plot.dart';
 import '../widgets/copeland_straddle_view.dart';
 import '../widgets/protocol_guided_banner.dart';
 import '../widgets/power_cross_view.dart';
+import '../widgets/sturms_conoid_view.dart';
+import '../widgets/reflex_motion_gauge.dart';
+import '../widgets/spherocylinder_transposition_card.dart';
 import '../widgets/interactive_onboarding_overlay.dart';
 import '../widgets/score_card_generator.dart';
 import 'about_screen.dart';
@@ -262,7 +265,10 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
     double c2 = double.tryParse(_userCylinder2Controller.text) ?? 0.0;
     double a2 = double.tryParse(_userAxis2Controller.text) ?? 0.0;
 
-    bool hasRxInput = _userSphere1Controller.text.trim().isNotEmpty && _userCylinder1Controller.text.trim().isNotEmpty;
+    final bool hasForm2Input = _userSphere2Controller.text.trim().isNotEmpty ||
+                               _userCylinder2Controller.text.trim().isNotEmpty ||
+                               _userAxis2Controller.text.trim().isNotEmpty;
+    bool hasRxInput = _userSphere1Controller.text.trim().isNotEmpty || hasForm2Input;
     bool rxCorrect = _state.checkAnswer(
       userSphere1: s1,
       userCylinder1: c1,
@@ -270,6 +276,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
       userSphere2: s2,
       userCylinder2: c2,
       userAxis2: a2,
+      form2Entered: hasForm2Input,
     );
 
     bool correct = false;
@@ -1083,7 +1090,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
 
         // Final Net Refraction Inputs (always accessible/editable)
         Text(
-          'Final Net Prescription (Form 1 Primary):',
+          'Final Net Prescription (Form 1 — Primary Required):',
           style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.cyanAccent : Colors.indigo),
         ),
         const SizedBox(height: 4),
@@ -1096,7 +1103,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
         ),
         const SizedBox(height: 8),
         Text(
-          'Final Net Prescription (Form 2 Transposed):',
+          'Final Net Prescription (Form 2 — Transposed Optional):',
           style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.amberAccent : Colors.teal),
         ),
         const SizedBox(height: 4),
@@ -2001,6 +2008,12 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                             _showProtocolSelectionDialog(context);
                           } else if (action == 'straddle') {
                             _showCopelandStraddleModal(context);
+                          } else if (action == 'sturm') {
+                            _state.toggleSturmsConoid();
+                          } else if (action == 'gauge') {
+                            _state.toggleReflexGauge();
+                          } else if (action == 'transposition') {
+                            _state.toggleTranspositionCard();
                           } else if (action == 'ray') {
                             _state.toggleRayDiagram();
                           } else if (action == 'thibos') {
@@ -2027,6 +2040,37 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                                 Icon(Icons.explore, color: Colors.orange, size: 18),
                                 SizedBox(width: 8),
                                 Text('Copeland Straddle (±45°)'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuDivider(),
+                          PopupMenuItem(
+                            value: 'sturm',
+                            child: Row(
+                              children: [
+                                Icon(_state.isSturmsConoidVisible ? Icons.check_box : Icons.check_box_outline_blank, color: Colors.cyanAccent, size: 18),
+                                const SizedBox(width: 8),
+                                const Text('Sturm’s Conoid 3D View'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'gauge',
+                            child: Row(
+                              children: [
+                                Icon(_state.isReflexGaugeVisible ? Icons.check_box : Icons.check_box_outline_blank, color: Colors.amber, size: 18),
+                                const SizedBox(width: 8),
+                                const Text('Reflex Dynamics Gauge'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'transposition',
+                            child: Row(
+                              children: [
+                                Icon(_state.isTranspositionCardVisible ? Icons.check_box : Icons.check_box_outline_blank, color: Colors.teal, size: 18),
+                                const SizedBox(width: 8),
+                                const Text('Transposition Lab Card'),
                               ],
                             ),
                           ),
@@ -2121,6 +2165,58 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                 _buildInfoBadge('Reflex Meridian', '${_state.reflexAngle.toStringAsFixed(0)}°', Colors.blue),
               ],
             ),
+            if (_state.isReflexGaugeVisible) ...[
+              const SizedBox(height: 14),
+              ReflexMotionGauge(state: _state),
+            ],
+            if (_state.isSturmsConoidVisible) ...[
+              const SizedBox(height: 16),
+              SturmsConoidView(
+                sphere: _state.isExploreMode
+                    ? _state.patientSphere
+                    : (_state.plusLensesSelected ? _state.plusSphere : _state.minusSphere),
+                cylinder: _state.isExploreMode
+                    ? _state.patientCylinder
+                    : (_state.plusLensesSelected ? _state.plusCylinder : _state.minusCylinder),
+                axis: _state.isExploreMode
+                    ? _state.patientAngle
+                    : (_state.plusLensesSelected ? _state.plusAxis : _state.minusAxis),
+                workingDistance: _state.workingDistance,
+                onClose: () => _state.toggleSturmsConoid(),
+              ),
+            ],
+            if (_state.isTranspositionCardVisible) ...[
+              const SizedBox(height: 16),
+              SpherocylinderTranspositionCard(
+                initialSphere: _state.isExploreMode
+                    ? _state.patientSphere
+                    : (_state.plusLensesSelected ? _state.plusSphere : _state.minusSphere),
+                initialCylinder: _state.isExploreMode
+                    ? _state.patientCylinder
+                    : (_state.plusLensesSelected ? _state.plusCylinder : _state.minusCylinder),
+                initialAxis: _state.isExploreMode
+                    ? _state.patientAngle
+                    : (_state.plusLensesSelected ? _state.plusAxis : _state.minusAxis),
+                onApplyToSimulator: (s, c, a) {
+                  if (_state.isExploreMode) {
+                    _state.patientSphere = s;
+                    _state.patientCylinder = c;
+                    _state.patientAngle = a;
+                  } else {
+                    if (_state.plusLensesSelected) {
+                      _state.plusSphere = s;
+                      _state.plusCylinder = c;
+                      _state.plusAxis = a;
+                    } else {
+                      _state.minusSphere = s;
+                      _state.minusCylinder = c;
+                      _state.minusAxis = a;
+                    }
+                  }
+                },
+                onClose: () => _state.toggleTranspositionCard(),
+              ),
+            ],
             if (_state.isRayDiagramVisible) ...[
               const SizedBox(height: 16),
               SizedBox(

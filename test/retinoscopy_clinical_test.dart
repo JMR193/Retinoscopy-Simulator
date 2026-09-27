@@ -550,5 +550,77 @@ void main() {
       expect(finalRx['minusCylinder'], equals(-2.00));
       expect(finalRx['minusAxis'], equals(90.0));
     });
+
+    test('27. Single-Form Prescription Submission Validation', () {
+      state.patientSphere = -1.50;
+      state.patientCylinder = -1.00;
+      state.patientAngle = 90.0;
+
+      // Student enters only Form 1 matching standard minus-cylinder form (-1.50 / -1.00 x 90)
+      bool singleFormStandard = state.checkAnswer(
+        userSphere1: -1.50,
+        userCylinder1: -1.00,
+        userAxis1: 90.0,
+        userSphere2: 0.0,
+        userCylinder2: 0.0,
+        userAxis2: 0.0,
+        form2Entered: false,
+      );
+      expect(singleFormStandard, isTrue);
+
+      // Student enters only Form 1 matching transposed plus-cylinder form (-2.50 / +1.00 x 180)
+      bool singleFormTransposed = state.checkAnswer(
+        userSphere1: -2.50,
+        userCylinder1: 1.00,
+        userAxis1: 180.0,
+        userSphere2: 0.0,
+        userCylinder2: 0.0,
+        userAxis2: 0.0,
+        form2Entered: false,
+      );
+      expect(singleFormTransposed, isTrue);
+
+      // Student enters incorrect prescription in Form 1
+      bool singleFormWrong = state.checkAnswer(
+        userSphere1: -1.50,
+        userCylinder1: 1.00,
+        userAxis1: 90.0,
+        userSphere2: 0.0,
+        userCylinder2: 0.0,
+        userAxis2: 0.0,
+        form2Entered: false,
+      );
+      expect(singleFormWrong, isFalse);
+    });
+
+    test('28. Pure Spherical Error Validation (Axis-Invariance & Single Form)', () {
+      state.patientSphere = 2.00;
+      state.patientCylinder = 0.0;
+      state.patientAngle = 90.0;
+
+      // Single form with any axis (axis has no optical power significance in pure spheres)
+      bool sphereMatchAxis45 = state.checkAnswer(
+        userSphere1: 2.00,
+        userCylinder1: 0.0,
+        userAxis1: 45.0,
+        userSphere2: 0.0,
+        userCylinder2: 0.0,
+        userAxis2: 0.0,
+        form2Entered: false,
+      );
+      expect(sphereMatchAxis45, isTrue);
+
+      // Incorrect sphere power
+      bool sphereWrong = state.checkAnswer(
+        userSphere1: 1.50,
+        userCylinder1: 0.0,
+        userAxis1: 90.0,
+        userSphere2: 0.0,
+        userCylinder2: 0.0,
+        userAxis2: 0.0,
+        form2Entered: false,
+      );
+      expect(sphereWrong, isFalse);
+    });
   });
 }

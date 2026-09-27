@@ -63,3 +63,53 @@ Given two orthogonal principal meridians $M_1$ at axis $\alpha_1$ and $M_2$ at a
   - `PatientProfilesScreen` guards `Navigator.pop()` with `canPop()` and requests Tab 0 (Simulator) on Practice click.
   - `HistoryScreen` uses `StorageService.getHistory()` dynamically on build and provides `RefreshIndicator`.
 
+---
+
+## 6. Global Theme Synchronization & Streamlined Material 3 Control Deck (Update 2026-09)
+- **Global Dark/Light Mode Architecture**:
+  - The Home Page AppBar toggle now calls `RetinoscopyState.toggleDarkMode()`, updating `_isDarkMode`, persisting to `StorageService.setDarkMode()`, and calling `notifyListeners()`.
+  - Removed local `Theme(...)` wrapper from `RetinoscopySimulatorScreen`. `MaterialApp` in `lib/main.dart` is globally reactive via `themeMode: state.isDarkMode ? ThemeMode.dark : ThemeMode.light`.
+  - Toggling theme on the Home Page immediately updates all screens, tabs, dialogs, and drawers across the entire app.
+  - `HandbookScreen` AppBar and TabBar now use adaptive Material 3 surface styling instead of hardcoded saturated blocks.
+- **Streamlined Material 3 Clinical Control Deck**:
+  - Replaced 3 sprawling rows of 13 loose action chips with a unified 2-row Material 3 Control Deck:
+    - **Meridian Quick Bar**: Segmented choice chips (`90° V`, `180° H`, `Flip`, and `Collar...` dropdown).
+    - **Mirror Mode Toggle**: Compact `Plane` vs `Concave` filter chip with indicator icons.
+    - **Auto-Sweep**: Sleek toggle with inline speed indicator (`1.0x`, `1.5x`, `2.0x`).
+    - **Working Distance**: Compact Segmented Choices (`50cm`, `67cm`, `1m`) with diopter tooltips.
+    - **Consolidated Tools Popover**: Unified `Tools` button integrating Copeland Straddle (±45°), Clinical Protocols (AAO), 2D Ray Tracing Diagram, Thibos Vector Plot, and 2-Meridian Optical Cross.
+  - Reduces vertical control footprint by 60% while preserving 100% of clinical functionality.
+
+---
+
+## 7. Educational Experience & Answer Check Optimization (Update 2026-09)
+- **Single-Form vs. Dual-Form Answer Evaluation**:
+  - `RetinoscopyState.checkAnswer` and `ExamScreen._checkAnswer` now support `form2Entered: false`, validating Form 1 against either primary target or transposed target.
+  - Students are never penalized or graded 0 if they write the correct prescription in Form 1 and omit Form 2.
+  - For pure spherical cases, axis difference is optically invariant; matching sphere in either Form 1 or Form 2 is valid.
+  - UI updated in `RetinoscopySimulatorScreen` and `ExamScreen` to clearly mark Form 1 as "Primary — Required" and Form 2 as "Transposed — Optional".
+- **Arcade Code Elimination**:
+  - Obsolete arcade "Gems" references removed from `CloudSyncService`, `StorageService`, `LeaderboardScreen`, and `ProfileSetupScreen`.
+  - Schema backwards compatibility with Firestore is preserved via optional default `{int gems = 0}` without exposing arcade artifacts in the UI.
+
+---
+
+## 8. Clinical Optics Widgets Suite (Update 2026-09)
+- **`lib/widgets/sturms_conoid_view.dart` (`SturmsConoidView`)**:
+  - Interactive 3D perspective Canvas visualizer for Sturm's Conoid.
+  - Renders anterior focal line ($F_1$), posterior focal line ($F_2$), Circle of Least Confusion ($COLC$), the Interval of Sturm, and the Retinal Plane.
+  - Automatically classifies astigmatism (CMA, SMA, MA, SHA, CHA, Emmetropia) with dynamic color-coded badges and tilt-angle controls.
+- **`lib/widgets/reflex_motion_gauge.dart` (`ReflexMotionGauge`)**:
+  - Real-time clinical telemetry HUD showing:
+    - Motion type with animated direction icons: WITH (+), AGAINST (−), NEUTRAL FLASH (★), SCISSORS (✂).
+    - Velocity index metric ($V_{reflex} \propto \frac{1}{|P_{net}|}$, accelerating to flash).
+    - Photometric Brilliance / Luminance index (%).
+    - Pupil Fill / Width factor.
+    - Astigmatic Break Phenomenon angular displacement readout.
+- **`lib/widgets/spherocylinder_transposition_card.dart` (`SpherocylinderTranspositionCard`)**:
+  - Interactive transposition laboratory providing step-by-step mathematical proofs ($S' = S + C$, $C' = -C$, $\alpha' = \alpha \pm 90^\circ$, $SE = S + C/2$).
+  - One-tap clipboard copy and direct simulator / phoropter loading.
+- Integrated into `RetinoscopySimulatorScreen` Tools menu and Center Panel.
+
+
+

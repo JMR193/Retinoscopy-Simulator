@@ -176,10 +176,17 @@ class _ExamScreenState extends State<ExamScreen> {
     });
   }
 
-  bool _checkAnswer(double s1, double c1, double a1, double s2, double c2, double a2, double refS, double refC, double refA) {
+  bool _checkAnswer(
+    double s1, double c1, double a1,
+    double s2, double c2, double a2,
+    double refS, double refC, double refA,
+    {bool form2Entered = true},
+  ) {
     if (refC.abs() < 0.05) {
       // Pure spherical error: Axis does not affect power
-      return (s1 - refS).abs() < 0.13 && c1.abs() < 0.13;
+      bool match1 = (s1 - refS).abs() < 0.13 && c1.abs() < 0.13;
+      bool match2 = (s2 - refS).abs() < 0.13 && c2.abs() < 0.13;
+      return match1 || (form2Entered && match2);
     }
     double refS2 = refS + refC;
     double refC2 = -refC;
@@ -193,10 +200,19 @@ class _ExamScreenState extends State<ExamScreen> {
              axisDiff <= axisTolerance;
     }
 
-    bool isStandardMatch = checkSingleRx(s1, c1, a1, refS, refC, refA) &&
-                          checkSingleRx(s2, c2, a2, refS2, refC2, refA2);
-    bool isTransposedMatch = checkSingleRx(s1, c1, a1, refS2, refC2, refA2) &&
-                            checkSingleRx(s2, c2, a2, refS, refC, refA);
+    bool form1MatchesStandard = checkSingleRx(s1, c1, a1, refS, refC, refA);
+    bool form1MatchesTransposed = checkSingleRx(s1, c1, a1, refS2, refC2, refA2);
+
+    if (!form2Entered) {
+      // Student entered single valid prescription in Form 1
+      return form1MatchesStandard || form1MatchesTransposed;
+    }
+
+    bool form2MatchesStandard = checkSingleRx(s2, c2, a2, refS, refC, refA);
+    bool form2MatchesTransposed = checkSingleRx(s2, c2, a2, refS2, refC2, refA2);
+
+    bool isStandardMatch = form1MatchesStandard && form2MatchesTransposed;
+    bool isTransposedMatch = form1MatchesTransposed && form2MatchesStandard;
 
     return isStandardMatch || isTransposedMatch;
   }
@@ -223,7 +239,15 @@ class _ExamScreenState extends State<ExamScreen> {
     final double c2 = double.tryParse(_c2Ctrl.text) ?? 0.0;
     final double a2 = double.tryParse(_a2Ctrl.text) ?? 0.0;
 
-    final bool isCorrect = _checkAnswer(s1, c1, a1, s2, c2, a2, currentCase.sphere, currentCase.cylinder, currentCase.axis);
+    final bool hasForm2 = _s2Ctrl.text.trim().isNotEmpty ||
+                          _c2Ctrl.text.trim().isNotEmpty ||
+                          _a2Ctrl.text.trim().isNotEmpty;
+
+    final bool isCorrect = _checkAnswer(
+      s1, c1, a1, s2, c2, a2,
+      currentCase.sphere, currentCase.cylinder, currentCase.axis,
+      form2Entered: hasForm2,
+    );
     
     if (isCorrect) {
       AudioService.playSuccess();
@@ -231,7 +255,12 @@ class _ExamScreenState extends State<ExamScreen> {
       AudioService.playWrong();
     }
 
-    String userAnswerStr = '${s1.toStringAsFixed(2)} / ${c1.toStringAsFixed(2)} x ${a1.toInt()} AND ${s2.toStringAsFixed(2)} / ${c2.toStringAsFixed(2)} x ${a2.toInt()}';
+    String userAnswerStr;
+    if (hasForm2) {
+      userAnswerStr = '${s1.toStringAsFixed(2)} / ${c1.toStringAsFixed(2)} x ${a1.toInt()} AND ${s2.toStringAsFixed(2)} / ${c2.toStringAsFixed(2)} x ${a2.toInt()}';
+    } else {
+      userAnswerStr = '${s1.toStringAsFixed(2)} / ${c1.toStringAsFixed(2)} x ${a1.toInt()}';
+    }
     
     _answers.add({
       'caseIndex': _currentIndex,
@@ -455,7 +484,7 @@ class _ExamScreenState extends State<ExamScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Question: Deduct working distance and write the patient’s final Net Rx in Primary Form (Form 1) and Transposed Form (Form 2):',
+                  'Question: Deduct working distance and write the patient’s final Net Rx in Primary Form (Form 1). Transposed Form (Form 2) is optional:',
                   style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
                 ),
               ],
@@ -479,7 +508,7 @@ class _ExamScreenState extends State<ExamScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Form 1 (Primary Prescription)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: colorScheme.primary)),
+                      Text('Form 1 (Primary Prescription — Required)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: colorScheme.primary)),
                       const SizedBox(height: 8),
                       Row(
                         children: [
@@ -505,7 +534,7 @@ class _ExamScreenState extends State<ExamScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Form 2 (Transposed Prescription)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: colorScheme.secondary)),
+                      Text('Form 2 (Transposed Prescription — Optional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: colorScheme.secondary)),
                       const SizedBox(height: 8),
                       Row(
                         children: [

@@ -5,6 +5,10 @@ import 'package:retinoscopy_simulator/screens/about_screen.dart';
 import 'package:retinoscopy_simulator/screens/store_screen.dart';
 import 'package:retinoscopy_simulator/services/storage_service.dart';
 import 'package:retinoscopy_simulator/widgets/power_cross_view.dart';
+import 'package:retinoscopy_simulator/widgets/sturms_conoid_view.dart';
+import 'package:retinoscopy_simulator/widgets/reflex_motion_gauge.dart';
+import 'package:retinoscopy_simulator/widgets/spherocylinder_transposition_card.dart';
+import 'package:retinoscopy_simulator/state/retinoscopy_state.dart';
 
 void main() {
   setUp(() async {
@@ -71,6 +75,78 @@ void main() {
     expect(find.text('Meridian 2'), findsOneWidget);
     expect(find.text('Net: +1.50 D @ 90°'), findsOneWidget);
     expect(find.text('Net: -0.50 D @ 180°'), findsOneWidget);
+  });
+
+  testWidgets('4. SturmsConoidView renders 3D ray conoid and astigmatic classification', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: SturmsConoidView(
+              sphere: 1.00,
+              cylinder: -2.50,
+              axis: 90.0,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SturmsConoidView), findsOneWidget);
+    expect(find.text('Sturm’s Conoid 3D Ray Conoid'), findsOneWidget);
+    expect(find.textContaining('Mixed Astigmatism'), findsOneWidget);
+    expect(find.textContaining('COLC'), findsWidgets);
+    expect(find.textContaining('Interval of Sturm'), findsOneWidget);
+  });
+
+  testWidgets('5. ReflexMotionGauge renders real-time motion and velocity telemetry', (WidgetTester tester) async {
+    final state = RetinoscopyState();
+    state.patientSphere = 2.00;
+    state.patientCylinder = 0.0;
+    state.workingDistance = 1.50;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ReflexMotionGauge(state: state),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ReflexMotionGauge), findsOneWidget);
+    expect(find.textContaining('WITH MOTION'), findsWidgets);
+    expect(find.text('Reflex Speed'), findsOneWidget);
+    expect(find.text('Brilliance / Lux'), findsOneWidget);
+    expect(find.text('Pupil Fill / Width'), findsOneWidget);
+  });
+
+  testWidgets('6. SpherocylinderTranspositionCard renders reciprocal forms and mathematical proof', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: SpherocylinderTranspositionCard(
+              initialSphere: 1.00,
+              initialCylinder: -2.00,
+              initialAxis: 90.0,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SpherocylinderTranspositionCard), findsOneWidget);
+    expect(find.text('Spherocylinder Transposition Lab'), findsOneWidget);
+    expect(find.textContaining('+1.00 DS / -2.00 DC × 90°'), findsOneWidget);
+    expect(find.textContaining('-1.00 DS / +2.00 DC × 180°'), findsOneWidget);
+    expect(find.textContaining('Mathematical Transposition Protocol'), findsOneWidget);
+    expect(find.text('Meridian @ 90°'), findsOneWidget);
+    expect(find.text('Meridian @ 180°'), findsOneWidget);
   });
 }
 

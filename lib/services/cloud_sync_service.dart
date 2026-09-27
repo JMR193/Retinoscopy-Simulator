@@ -38,7 +38,7 @@ class CloudSyncService {
     return cleaned.length > 30 ? cleaned.substring(0, 30) : cleaned;
   }
 
-  static Future<void> syncLocalDataToCloud(int xp, int gems, int streak, String userName) async {
+  static Future<void> syncLocalDataToCloud(int xp, int streak, String userName, {int gems = 0}) async {
     try {
       if (_auth.currentUser == null) {
         await signInAnonymously();

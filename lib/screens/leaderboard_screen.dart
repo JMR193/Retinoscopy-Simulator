@@ -17,7 +17,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     setState(() => _isSyncing = true);
     await CloudSyncService.syncLocalDataToCloud(
       StorageService.getXp(),
-      StorageService.getGems(),
       StorageService.getStudyStreak(),
       StorageService.getUserName(),
     );

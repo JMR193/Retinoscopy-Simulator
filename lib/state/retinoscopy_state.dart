@@ -383,6 +383,27 @@ class RetinoscopyState extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool _isSturmsConoidVisible = false;
+  bool get isSturmsConoidVisible => _isSturmsConoidVisible;
+  void toggleSturmsConoid() {
+    _isSturmsConoidVisible = !_isSturmsConoidVisible;
+    notifyListeners();
+  }
+
+  bool _isReflexGaugeVisible = true;
+  bool get isReflexGaugeVisible => _isReflexGaugeVisible;
+  void toggleReflexGauge() {
+    _isReflexGaugeVisible = !_isReflexGaugeVisible;
+    notifyListeners();
+  }
+
+  bool _isTranspositionCardVisible = false;
+  bool get isTranspositionCardVisible => _isTranspositionCardVisible;
+  void toggleTranspositionCard() {
+    _isTranspositionCardVisible = !_isTranspositionCardVisible;
+    notifyListeners();
+  }
+
   // Pathology Simulation Modes
   bool _isKeratoconus = false;
   bool get isKeratoconus => _isKeratoconus;
@@ -1277,6 +1298,7 @@ class RetinoscopyState extends ChangeNotifier {
     required double userSphere2,
     required double userCylinder2,
     required double userAxis2,
+    bool form2Entered = true,
   }) {
     double correctSphere1 = _patientSphere;
     double correctCylinder1 = _patientCylinder;
@@ -1305,11 +1327,26 @@ class RetinoscopyState extends ChangeNotifier {
              axisDiff <= axisTolerance;
     }
 
-    bool isStandardMatch = checkPair(userSphere1, userCylinder1, userAxis1, correctSphere1, correctCylinder1, correctAxis1) &&
-                          checkPair(userSphere2, userCylinder2, userAxis2, correctSphere2, correctCylinder2, correctAxis2);
+    if (_patientCylinder.abs() < 0.05) {
+      // Pure spherical error: Form 1 or Form 2 matching patientSphere is correct
+      bool match1 = (userSphere1 - _patientSphere).abs() < 0.13 && userCylinder1.abs() < 0.13;
+      bool match2 = (userSphere2 - _patientSphere).abs() < 0.13 && userCylinder2.abs() < 0.13;
+      return match1 || (form2Entered && match2);
+    }
 
-    bool isTransposedMatch = checkPair(userSphere1, userCylinder1, userAxis1, correctSphere2, correctCylinder2, correctAxis2) &&
-                            checkPair(userSphere2, userCylinder2, userAxis2, correctSphere1, correctCylinder1, correctAxis1);
+    bool form1MatchesStandard = checkPair(userSphere1, userCylinder1, userAxis1, correctSphere1, correctCylinder1, correctAxis1);
+    bool form1MatchesTransposed = checkPair(userSphere1, userCylinder1, userAxis1, correctSphere2, correctCylinder2, correctAxis2);
+
+    if (!form2Entered) {
+      // Student entered single valid prescription in Form 1
+      return form1MatchesStandard || form1MatchesTransposed;
+    }
+
+    bool form2MatchesStandard = checkPair(userSphere2, userCylinder2, userAxis2, correctSphere1, correctCylinder1, correctAxis1);
+    bool form2MatchesTransposed = checkPair(userSphere2, userCylinder2, userAxis2, correctSphere2, correctCylinder2, correctAxis2);
+
+    bool isStandardMatch = form1MatchesStandard && form2MatchesTransposed;
+    bool isTransposedMatch = form1MatchesTransposed && form2MatchesStandard;
 
     return isStandardMatch || isTransposedMatch;
   }

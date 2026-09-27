@@ -26,9 +26,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     // Do an initial sync of their name to the cloud
     CloudSyncService.syncLocalDataToCloud(
       StorageService.getXp(), 
-      StorageService.getGems(), 
       StorageService.getStudyStreak(), 
-      name
+      name,
     );
 
     await StorageService.markFirstLaunchDone();
