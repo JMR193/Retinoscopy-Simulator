@@ -179,9 +179,9 @@ class _ExamScreenState extends State<ExamScreen> {
   bool _checkAnswer(
     double s1, double c1, double a1,
     double s2, double c2, double a2,
-    double refS, double refC, double refA,
-    {bool form2Entered = true},
-  ) {
+    double refS, double refC, double refA, {
+    bool form2Entered = true,
+  }) {
     if (refC.abs() < 0.05) {
       // Pure spherical error: Axis does not affect power
       bool match1 = (s1 - refS).abs() < 0.13 && c1.abs() < 0.13;
