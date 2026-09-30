@@ -111,5 +111,13 @@ Given two orthogonal principal meridians $M_1$ at axis $\alpha_1$ and $M_2$ at a
   - One-tap clipboard copy and direct simulator / phoropter loading.
 - Integrated into `RetinoscopySimulatorScreen` Tools menu and Center Panel.
 
+---
+
+## 9. Build Resolution (Release Kernel Snapshot Fix)
+- **`lib/screens/exam_screen.dart`**:
+  - Corrected named optional parameter syntax in `_checkAnswer`: changed `{bool form2Entered = true},` to `{bool form2Entered = true}` enclosed properly within the function parameter parentheses.
+  - Resolves Dart compiler parsing error `Error: Expected ')' before this` during `flutter build apk --release`.
+
+
 
 
