@@ -134,6 +134,19 @@ Given two orthogonal principal meridians $M_1$ at axis $\alpha_1$ and $M_2$ at a
   - Retained persistent re-access from the AppBar Menu (`Icons.more_vert` -> Interactive Onboarding) and Help dialogs.
   - Harmonized portrait mode `Subjective Refraction` FilterChip with dark/light theme adaptivity matching landscape mode.
 
+---
+
+## 11. Clinical Handbook Pedagogical Expansion
+- **`lib/screens/handbook_screen.dart`**:
+  - Added dedicated clinical guides in the **Technique** tab:
+    - *Copeland Straddling Refinement (±45° Method)*: Refines cylinder axis precision to within ±2.5° by comparing differential width and brilliance.
+    - *Dynamic Retinoscopy (MEM & Nott)*: Objective measurement of accommodative lag/lead under near demand (+2.50 D).
+    - *Mohindra Pediatric Dark-Room Near Technique*: Dark-field infant refraction at 50 cm with −1.25 D tonic accommodation deduction.
+  - Added specialized chapters in the **Pathology** tab:
+    - *Charleux’s Sign (Oil-Droplet Reflex in Lenticonus / Alport Syndrome)*: Conical refractive power discrepancy and retro-illumination droplet optics.
+    - *Dense Nuclear Cataract Central Extinction*: Light scatter and paraxial extinction in grade 3–4 nuclear sclerosis.
+
+
 
 
 
