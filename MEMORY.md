@@ -118,6 +118,23 @@ Given two orthogonal principal meridians $M_1$ at axis $\alpha_1$ and $M_2$ at a
   - Corrected named optional parameter syntax in `_checkAnswer`: changed `{bool form2Entered = true},` to `{bool form2Entered = true}` enclosed properly within the function parameter parentheses.
   - Resolves Dart compiler parsing error `Error: Expected ')' before this` during `flutter build apk --release`.
 
+---
+
+## 10. Research, PRD & Architecture Artifacts, and First-Time UX Hardening
+- **Comprehensive Ophthalmic Research Report**:
+  - Detailed survey of Copeland streak method, Corboy, Borish, Duke-Elder, AAO BCSC Clinical Optics.
+  - Spherocylindrical matrix decomposition, Thibos Fourier power vector space ($M, J_0, J_{45}$), and continuous hyperbolic velocity scaling ($V \propto 1/|P_{net}|$).
+  - Dynamic retinoscopy protocols (MEM, Nott, Mohindra Pediatric Near Technique, Bell).
+  - Atypical reflexes: keratoconic scissors (Zernike $Z_4^0$), Charleux oil-droplet (lenticonus), dull central cataract extinction, astigmatic break and skew shear.
+- **Created Production Artifacts**:
+  - `PRD.md`: Formal Product Requirements Document detailing clinical personas, functional requirements (FR-OPT, FR-PRO, FR-HUD, FR-UX), competitive matrices, and non-functional requirements.
+  - `ARCHITECTURE.md`: Complete system architecture specification covering the 4-layer clean pattern, mathematical formulations, rendering pipeline, state management, and test architecture.
+- **First-Time UX & Screen Optimization**:
+  - `InteractiveOnboardingOverlay`: Hardened persistence so completing or dismissing the tutorial unconditionally marks it seen in `StorageService`, ensuring it appears on first launch and gracefully vanishes on subsequent sessions.
+  - Retained persistent re-access from the AppBar Menu (`Icons.more_vert` -> Interactive Onboarding) and Help dialogs.
+  - Harmonized portrait mode `Subjective Refraction` FilterChip with dark/light theme adaptivity matching landscape mode.
+
+
 
 
 

@@ -53,7 +53,6 @@ class _InteractiveOnboardingOverlayState extends State<InteractiveOnboardingOver
   // Stage 5 Selected Starter Case
   int _selectedStarterCase = 0; // 0 = Hyperopia, 1 = Myopia, 2 = Astigmatism
 
-  bool _dontShowAgain = false;
 
   @override
   void initState() {
@@ -91,9 +90,7 @@ class _InteractiveOnboardingOverlayState extends State<InteractiveOnboardingOver
   }
 
   void _finishTutorial() {
-    if (_dontShowAgain) {
-      StorageService.markSimulatorTourSeen();
-    }
+    StorageService.markSimulatorTourSeen();
     
     // Configure starter case if requested
     final state = context.read<RetinoscopyState>();
@@ -234,9 +231,7 @@ class _InteractiveOnboardingOverlayState extends State<InteractiveOnboardingOver
                 tooltip: 'Skip Tutorial',
                 icon: const Icon(Icons.close, size: 20),
                 onPressed: () {
-                  if (_dontShowAgain) {
-                    StorageService.markSimulatorTourSeen();
-                  }
+                  StorageService.markSimulatorTourSeen();
                   Navigator.of(context).pop();
                 },
               ),
@@ -921,20 +916,30 @@ class _InteractiveOnboardingOverlayState extends State<InteractiveOnboardingOver
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Don't show again checkbox
-              Row(
-                children: [
-                  SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: Checkbox(
-                      value: _dontShowAgain,
-                      onChanged: (val) => setState(() => _dontShowAgain = val ?? false),
+              // Replay info tip
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.help_outline_rounded,
+                      size: 15,
+                      color: isDark ? Colors.cyanAccent.shade100 : Colors.blue.shade700,
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  const Text('Don\'t show on startup', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                ],
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        'Replay anytime via Help (?) in the top bar',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? Colors.white60 : Colors.grey.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               // Back & Next/Finish Buttons
               Row(

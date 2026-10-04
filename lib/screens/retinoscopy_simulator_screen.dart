@@ -676,13 +676,28 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                               child: VerticalDivider(width: 2, thickness: 1, color: Colors.grey),
                             ),
                             const SizedBox(width: 12),
-                            FilterChip(
-                              label: const Text('Subjective Refraction', style: TextStyle(fontWeight: FontWeight.bold)),
-                              selected: _state.subjectiveModeActive,
-                              selectedColor: Colors.purple[100],
-                              checkmarkColor: Colors.purple,
-                              onSelected: (val) {
-                                _state.subjectiveModeActive = val;
+                            Builder(
+                              builder: (context) {
+                                final bool isDark = _state.isDarkMode || Theme.of(context).brightness == Brightness.dark;
+                                return FilterChip(
+                                  label: Text(
+                                    'Subjective Refraction',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: _state.subjectiveModeActive
+                                          ? (isDark ? Colors.purple.shade100 : Colors.purple.shade900)
+                                          : (isDark ? Colors.white70 : Colors.black87),
+                                    ),
+                                  ),
+                                  selected: _state.subjectiveModeActive,
+                                  selectedColor: isDark ? Colors.purple.shade900 : Colors.purple[100],
+                                  checkmarkColor: isDark ? Colors.purple.shade200 : Colors.purple,
+                                  backgroundColor: isDark ? const Color(0xFF1E293B) : null,
+                                  onSelected: (val) {
+                                    _state.subjectiveModeActive = val;
+                                  },
+                                );
                               },
                             ),
                           ],
