@@ -180,6 +180,46 @@ class _TechniqueTab extends StatelessWidget {
             'This is why the simulator includes a "Dilated Pupil" toggle.',
       ),
       _Section(
+        icon: Icons.sync_alt,
+        color: Colors.deepOrange,
+        title: 'Copeland Straddling Refinement (±45° Method)',
+        content:
+            'Jack Copeland\'s straddling technique refines cylinder axis precision to within ±2.5°:\n\n'
+            '1. Neutralize the primary sphere and approximate cylinder axis.\n'
+            '2. Rotate the retinoscope streak 45° to the right of the cylinder axis. Sweep and observe reflex width & brightness.\n'
+            '3. Rotate the streak 45° to the left of the axis. Sweep and compare.\n\n'
+            '• If thickness and brilliance are IDENTICAL on both sides → axis is perfectly accurate (Equilibrium).\n'
+            '• If one side is sharper or brighter → rotate the cylinder axis TOWARD the sharper meridian.\n\n'
+            'Use the "Copeland Straddle HUD" tool in the simulator to visualize this in real time.',
+      ),
+      _Section(
+        icon: Icons.auto_graph,
+        color: Colors.indigo,
+        title: 'Dynamic Retinoscopy: MEM & Nott Protocols',
+        content:
+            'Dynamic retinoscopy objectively quantifies the accommodative response under near visual demand (e.g., 40 cm = +2.50 D):\n\n'
+            '• Monocular Estimation Method (MEM):\n'
+            '  Patient reads age-appropriate words on a card attached to the retinoscope at 40 cm.\n'
+            '  Examiner sweeps horizontal meridian and introduces loose plus/minus lenses for <0.5 s.\n'
+            '  Normal lag: +0.50 D to +0.75 D with-motion.\n'
+            '  Lag > +0.75 D indicates Accommodative Insufficiency; against-motion indicates Accommodative Excess.\n\n'
+            '• Nott\'s Technique (Zero-Lens Method):\n'
+            '  Reading target remains fixed at 40 cm. Examiner physically moves backward until neutral flash is reached.\n'
+            '  Accommodative Response = 1 / d_neutral (meters). Eliminates lens-induced magnification artifacts.',
+      ),
+      _Section(
+        icon: Icons.nightlight_round,
+        color: Colors.amber.shade900,
+        title: 'Mohindra Pediatric Dark-Room Near Retinoscopy',
+        content:
+            'For infants, toddlers, or uncooperative children where cycloplegic drops cannot be administered:\n\n'
+            '• Total Dark Room: The sole light source is the dim retinoscope filament held at exactly 50 cm.\n'
+            '• Abolishes proximal and picture accommodation; leaves only tonic resting accommodation (dark focus ~+0.75 D).\n'
+            '• Neutralize both principal meridians quickly.\n'
+            '• Mohindra Correction Factor: Subtract -1.25 D (not -2.00 D) from the gross neutralization:\n'
+            '  Net Rx = Gross Lens − 1.25 D (for infants < 2 years, some protocols use -1.00 D).',
+      ),
+      _Section(
         icon: Icons.tips_and_updates_outlined,
         color: Colors.teal,
         title: 'Clinical Tips',
@@ -489,6 +529,26 @@ class _PathologyTab extends StatelessWidget {
             '• Asymmetric red reflex brightness between eyes\n'
             '• Crescent reflex on the opposite side of the refractive error in the illuminated eye\n'
             '• Rapid screening for anisometropia and media opacity in infants',
+      ),
+      _Section(
+        icon: Icons.water_drop_outlined,
+        color: Colors.amber.shade800,
+        title: 'Charleux’s Sign (Oil-Droplet Reflex in Lenticonus)',
+        content:
+            'Pathognomonic for anterior or posterior lenticonus (frequently seen in Alport syndrome) and central keratoconus cones:\n\n'
+            '• Presentation: Appears as a distinct, dark circular droplet or oil-bubble in the red reflex under retro-illumination.\n'
+            '• Mechanism: Extreme refractive power discrepancy between the steep central conical cone (+10.00 D to +20.00 D myopic shift) and the flatter surrounding lens/cornea creates total internal reflection at the steep margin.\n'
+            '• Clinical pearl: The central zone exhibits strong against-motion while the periphery shows with-motion.',
+      ),
+      _Section(
+        icon: Icons.visibility_off_outlined,
+        color: Colors.brown.shade400,
+        title: 'Dense Nuclear Cataract Central Extinction',
+        content:
+            'In grade 3–4 nuclear sclerotic cataracts (NS3–NS4):\n\n'
+            '• Central Extinction: Dense nuclear yellowing and protein aggregation absorb and scatter incident light, extinguishing the central 3 mm reflex.\n'
+            '• Peripheral Escape: Only a dim, reddish ring escapes through the clearer cortical periphery.\n'
+            '• Management: Dilate the pupil, increase the retinoscope illumination to maximum, or rely on subjective pinhole and automated A-scan biometry.',
       ),
     ]);
   }
