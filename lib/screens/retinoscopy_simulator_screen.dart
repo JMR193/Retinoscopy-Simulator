@@ -21,12 +21,9 @@ import '../widgets/spherocylinder_transposition_card.dart';
 import '../widgets/interactive_onboarding_overlay.dart';
 import '../widgets/score_card_generator.dart';
 import 'about_screen.dart';
-import 'patient_profiles_screen.dart';
 import 'store_screen.dart';
-import 'exam_screen.dart';
 import 'optical_calculator_screen.dart';
 import 'ai_tutor_screen.dart';
-import 'handbook_screen.dart';
 import 'leaderboard_screen.dart';
 import 'login_screen.dart';
 import '../services/cloud_sync_service.dart';
@@ -60,7 +57,6 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
   final TextEditingController _m2PowerController = TextEditingController();
   final TextEditingController _m2AxisController = TextEditingController();
   bool _useDualMeridianEntry = true;
-  bool? _meridianTestResult;
 
   bool? _testResult;
   bool _showTestFeedback = false;
@@ -251,10 +247,10 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
     bool meridianCorrect = false;
     if (hasMeridianInput) {
       meridianCorrect = _state.checkMeridianNeutralPoints(
-        userM1Power: m1P!,
-        userM1Axis: m1A!,
-        userM2Power: m2P!,
-        userM2Axis: m2A!,
+        userM1Power: m1P,
+        userM1Axis: m1A,
+        userM2Power: m2P,
+        userM2Axis: m2A,
       );
     }
 
@@ -311,7 +307,6 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
 
     setState(() {
       _testResult = correct;
-      _meridianTestResult = hasMeridianInput ? meridianCorrect : null;
       _showTestFeedback = true;
     });
   }
@@ -343,7 +338,6 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
     setState(() {
       _showTestFeedback = false;
       _testResult = null;
-      _meridianTestResult = null;
     });
   }
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cloud_sync_service.dart';
+import 'security_service.dart';
 
 /// Persistent storage service — JMR Technologies
 /// Handles all SharedPreferences-backed data persistence for the Retinoscopy Simulator.
@@ -114,10 +115,11 @@ class StorageService {
       _prefs?.getString(_userNameKey) ?? (_memoryFallback[_userNameKey] as String?) ?? '';
 
   static Future<void> setUserName(String name) async {
+    final safeName = SecurityService.sanitizeName(name);
     if (_prefs != null) {
-      await _prefs!.setString(_userNameKey, name);
+      await _prefs!.setString(_userNameKey, safeName);
     } else {
-      _memoryFallback[_userNameKey] = name;
+      _memoryFallback[_userNameKey] = safeName;
     }
   }
 

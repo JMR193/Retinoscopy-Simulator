@@ -63,7 +63,6 @@ class _SpherocylinderTranspositionCardState extends State<SpherocylinderTranspos
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final colorScheme = theme.colorScheme;
 
     // Transposition Calculations:
     // 1. New Sphere = Old Sphere + Old Cylinder

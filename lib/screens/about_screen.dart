@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../services/storage_service.dart';
+import '../services/security_service.dart';
 
 /// About Screen — JMR Technologies Retinoscopy Simulator
 class AboutScreen extends StatefulWidget {
@@ -23,14 +23,7 @@ class _AboutScreenState extends State<AboutScreen> {
   }
 
   Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open $url')),
-        );
-      }
-    }
+    await SecurityService.safeLaunchUrl(context, url);
   }
 
   Future<void> _showClearDataDialog() async {

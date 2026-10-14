@@ -52,7 +52,6 @@ class _ReflexMotionGaugeState extends State<ReflexMotionGauge> with SingleTicker
     final state = widget.state;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final colorScheme = theme.colorScheme;
 
     final String motion = state.reflexMotion;
     final double reflexWidth = state.reflexWidth;

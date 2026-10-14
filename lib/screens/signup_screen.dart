@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';
+import '../services/security_service.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -46,6 +47,14 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Future<void> _signup() async {
+    final email = _emailController.text.trim();
+    if (!SecurityService.isValidEmail(email)) {
+      setState(() {
+        _errorMessage = 'Please enter a valid email address.';
+      });
+      return;
+    }
+
     final validationError = _validatePassword(_passwordController.text);
     if (validationError != null) {
       setState(() {
@@ -68,7 +77,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
     try {
       await _authService.signUpWithEmailAndPassword(
-        _emailController.text.trim(),
+        email,
         _passwordController.text,
       );
       await StorageService.setGuestMode(false);
@@ -77,11 +86,11 @@ class _SignupScreenState extends State<SignupScreen> {
       }
     } on FirebaseAuthException catch (e) {
       setState(() {
-        _errorMessage = e.message ?? 'An error occurred during sign up.';
+        _errorMessage = SecurityService.getSafeAuthErrorMessage(e.code.isNotEmpty ? e.code : e.message);
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'An unexpected error occurred.';
+        _errorMessage = SecurityService.getSafeAuthErrorMessage(e);
       });
     } finally {
       if (mounted) {

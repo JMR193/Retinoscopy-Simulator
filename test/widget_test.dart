@@ -48,7 +48,7 @@ void main() {
     expect(find.text('Daylight Clinical LED (5500K)'), findsOneWidget);
 
     final cobaltFinder = find.text('Cobalt Contrast Filter');
-    await tester.ensureVisible(cobaltFinder);
+    await tester.scrollUntilVisible(cobaltFinder, 300);
     expect(cobaltFinder, findsOneWidget);
   });
 
@@ -115,7 +115,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.byType(ReflexMotionGauge), findsOneWidget);
     expect(find.textContaining('WITH MOTION'), findsWidgets);

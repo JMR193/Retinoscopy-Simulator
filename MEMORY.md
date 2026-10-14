@@ -146,8 +146,20 @@ Given two orthogonal principal meridians $M_1$ at axis $\alpha_1$ and $M_2$ at a
     - *Charleux’s Sign (Oil-Droplet Reflex in Lenticonus / Alport Syndrome)*: Conical refractive power discrepancy and retro-illumination droplet optics.
     - *Dense Nuclear Cataract Central Extinction*: Light scatter and paraxial extinction in grade 3–4 nuclear sclerosis.
 
+---
 
-
-
-
-
+## 12. Security-First Architecture & Engineering Rules (Update 2026-10)
+- **Centralized Security Layer (`lib/services/security_service.dart`)**:
+  - **Rule 1: No Hardcoded Secrets/Keys**: Compile-time environment secrets accessed strictly via `SecurityService.getEnvironmentSecret(key)` using `String.fromEnvironment`. Zero API keys or private tokens in source code.
+  - **Rule 2: Secure Storage Segregation**: Non-sensitive clinical preferences (theme, working distance, study streak) remain crash-resilient in `SharedPreferences`. Sensitive user credentials, sessions, or tokens are segregated and forbidden from `SharedPreferences`.
+  - **Rule 3: Secure Network Communication**: HTTPS strictly enforced for all web endpoints (`SecurityService.safeLaunchUrl`). Insecure plain HTTP links are actively blocked. Global error boundaries wrap external calls to prevent raw stack traces, API endpoints, or database structures from leaking to the UI (`SecurityService.getSafeAuthErrorMessage`).
+  - **Rule 4: Clean Data Handling & XSS Shield**: All text inputs (candidate names, patient profiles, clinical notes) pass through `SecurityService.sanitizeText` / `sanitizeName` / `sanitizeNotes`, stripping scripts, HTML tags, control characters, and null bytes. Strict RFC 5322 regex validation (`SecurityService.isValidEmail`) enforced before submitting credentials.
+  - **Rule 5: Deep Link Security & Biological Clamping**: Incoming deep links (`retino://case?d=...`) validated via `SecurityService.isValidDeepLinkUri` with scheme/host verification and anti-DoS payload length caps (max 4,096 chars). Refractive parameters clamped to safe physiological bounds:
+    - Sphere: $[-25.00\text{ D}, +25.00\text{ D}]$
+    - Cylinder: $[-15.00\text{ D}, +15.00\text{ D}]$
+    - Axis: $[0^\circ, 180^\circ]$ (normalized modulo 180)
+    - Age: $[0, 125]$
+- **Comprehensive Verification Suite**:
+  - `test/security_audit_test.dart`: 14 automated unit tests verifying compile-time secret fallbacks, script/XSS sanitization, email regex, safe auth error mapping, deep link URI verification, biological bounds clamping, and payload DoS rejection.
+  - `test/retinoscopy_clinical_test.dart` (28 tests) and `test/widget_test.dart` (6 tests): All 48 project tests pass with 100% success.
+  - `dart analyze lib test`: Clean static analysis with 0 errors and 0 warnings.

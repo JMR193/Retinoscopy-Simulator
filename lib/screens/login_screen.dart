@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';
+import '../services/security_service.dart';
 import 'signup_screen.dart';
 import '../main.dart';
 
@@ -31,6 +32,13 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    if (!SecurityService.isValidEmail(email)) {
+      setState(() {
+        _errorMessage = 'Please enter a valid email address.';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -45,11 +53,11 @@ class _LoginScreenState extends State<LoginScreen> {
       // If successful, the AuthWrapper in main.dart will automatically navigate to AppShell
     } on FirebaseAuthException catch (e) {
       setState(() {
-        _errorMessage = e.message ?? 'An error occurred during login.';
+        _errorMessage = SecurityService.getSafeAuthErrorMessage(e.code.isNotEmpty ? e.code : e.message);
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'An unexpected error occurred.';
+        _errorMessage = SecurityService.getSafeAuthErrorMessage(e);
       });
     } finally {
       if (mounted) {

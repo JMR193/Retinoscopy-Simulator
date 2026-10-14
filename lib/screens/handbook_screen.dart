@@ -209,7 +209,7 @@ class _TechniqueTab extends StatelessWidget {
       ),
       _Section(
         icon: Icons.nightlight_round,
-        color: Colors.amber.shade900,
+        color: Color(0xFFFF6F00),
         title: 'Mohindra Pediatric Dark-Room Near Retinoscopy',
         content:
             'For infants, toddlers, or uncooperative children where cycloplegic drops cannot be administered:\n\n'
@@ -532,7 +532,7 @@ class _PathologyTab extends StatelessWidget {
       ),
       _Section(
         icon: Icons.water_drop_outlined,
-        color: Colors.amber.shade800,
+        color: Color(0xFFFF8F00),
         title: 'Charleux’s Sign (Oil-Droplet Reflex in Lenticonus)',
         content:
             'Pathognomonic for anterior or posterior lenticonus (frequently seen in Alport syndrome) and central keratoconus cones:\n\n'
@@ -542,7 +542,7 @@ class _PathologyTab extends StatelessWidget {
       ),
       _Section(
         icon: Icons.visibility_off_outlined,
-        color: Colors.brown.shade400,
+        color: Color(0xFF8D6E63),
         title: 'Dense Nuclear Cataract Central Extinction',
         content:
             'In grade 3–4 nuclear sclerotic cataracts (NS3–NS4):\n\n'

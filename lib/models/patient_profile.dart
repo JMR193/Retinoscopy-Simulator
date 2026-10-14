@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/security_service.dart';
 
 class PatientProfile {
   final String id;
@@ -13,26 +14,32 @@ class PatientProfile {
 
   PatientProfile({
     String? id,
-    required this.name,
-    required this.age,
-    required this.notes,
-    required this.sphere,
-    required this.cylinder,
-    required this.axis,
+    required String name,
+    required int age,
+    required String notes,
+    required double sphere,
+    required double cylinder,
+    required double axis,
     DateTime? createdAt,
   })  : id = id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        name = SecurityService.sanitizeName(name),
+        age = SecurityService.clampAge(age),
+        notes = SecurityService.sanitizeNotes(notes),
+        sphere = SecurityService.clampSphere(sphere),
+        cylinder = SecurityService.clampCylinder(cylinder),
+        axis = SecurityService.clampAxis(axis),
         createdAt = createdAt ?? DateTime.now();
 
   factory PatientProfile.fromJson(Map<String, dynamic> json) {
     return PatientProfile(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      age: json['age'] as int,
-      notes: json['notes'] as String,
-      sphere: (json['sphere'] as num).toDouble(),
-      cylinder: (json['cylinder'] as num).toDouble(),
-      axis: (json['axis'] as num).toDouble(),
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      id: json['id'] as String?,
+      name: SecurityService.sanitizeName(json['name'] as String? ?? 'Patient'),
+      age: SecurityService.clampAge(json['age'] as num?),
+      notes: SecurityService.sanitizeNotes(json['notes'] as String? ?? ''),
+      sphere: SecurityService.clampSphere(json['sphere'] as num?),
+      cylinder: SecurityService.clampCylinder(json['cylinder'] as num?),
+      axis: SecurityService.clampAxis(json['axis'] as num?),
+      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'] as String) : null,
     );
   }
 
@@ -60,35 +67,51 @@ class PatientProfile {
   String toQrPayload() {
     final Map<String, dynamic> data = {
       'v': 1,
-      'n': name,
-      'a': age,
-      's': sphere,
-      'c': cylinder,
-      'x': axis,
-      't': notes,
+      'n': SecurityService.sanitizeName(name),
+      'a': SecurityService.clampAge(age),
+      's': SecurityService.clampSphere(sphere),
+      'c': SecurityService.clampCylinder(cylinder),
+      'x': SecurityService.clampAxis(axis),
+      't': SecurityService.sanitizeNotes(notes),
     };
     return 'retino://case?d=${base64Url.encode(utf8.encode(jsonEncode(data)))}';
   }
 
-  /// Parses a compact shareable case payload string
+  /// Parses a compact shareable case payload string with strict security validation
   static PatientProfile? fromQrPayload(String payload) {
+    final trimmed = payload.trim();
+    if (trimmed.isEmpty || trimmed.length > 5000) {
+      return null;
+    }
+
     try {
-      final uri = Uri.parse(payload.trim());
-      final d = uri.queryParameters['d'];
-      if (d == null || d.isEmpty) {
+      final uri = Uri.parse(trimmed);
+      if (!SecurityService.isValidDeepLinkUri(uri)) {
         return null;
       }
+
+      final d = uri.queryParameters['d'];
+      if (d == null || d.isEmpty || d.length > 4096) {
+        return null;
+      }
+
       final jsonStr = utf8.decode(base64Url.decode(d));
-      final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+      final dynamic decoded = jsonDecode(jsonStr);
+      if (decoded is! Map<String, dynamic>) {
+        return null;
+      }
+
+      final map = decoded;
       return PatientProfile(
-        name: (map['n'] as String?) ?? 'Imported Case',
-        age: (map['a'] as num?)?.toInt() ?? 25,
-        sphere: (map['s'] as num?)?.toDouble() ?? 0.0,
-        cylinder: (map['c'] as num?)?.toDouble() ?? 0.0,
-        axis: (map['x'] as num?)?.toDouble() ?? 90.0,
-        notes: (map['t'] as String?) ?? '',
+        name: SecurityService.sanitizeName((map['n'] as String?) ?? 'Imported Case'),
+        age: SecurityService.clampAge(map['a'] as num?),
+        sphere: SecurityService.clampSphere(map['s'] as num?),
+        cylinder: SecurityService.clampCylinder(map['c'] as num?),
+        axis: SecurityService.clampAxis(map['x'] as num?),
+        notes: SecurityService.sanitizeNotes((map['t'] as String?) ?? ''),
       );
     } catch (_) {
+      // Catch corrupted base64, malformed JSON, format errors securely
       return null;
     }
   }
