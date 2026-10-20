@@ -622,5 +622,57 @@ void main() {
       );
       expect(sphereWrong, isFalse);
     });
+
+    test('29. Dual Meridian Live Neutral Point Capture & Calculated Rx', () {
+      state.patientSphere = 1.00;
+      state.patientCylinder = -2.00;
+      state.patientAngle = 90.0;
+      state.workingDistance = 1.50;
+
+      // Gross neutral target for M1 is 1.00 + 1.50 = +2.50 DS @ 90°
+      // Gross neutral target for M2 is 1.00 - 2.00 + 1.50 = +0.50 DS @ 180°
+      expect(state.patientGrossM1, equals(2.50));
+      expect(state.patientGrossM2, equals(0.50));
+
+      // Dial +2.50 DS on trial frame and capture as M1
+      state.plusLensesSelected = true;
+      state.plusSphere = 2.50;
+      state.streakAngle = 90.0;
+      state.captureActiveAsM1();
+
+      expect(state.capturedM1Gross, equals(2.50));
+      expect(state.capturedM1Axis, equals(90.0));
+      expect(state.areBothMeridiansCaptured, isFalse);
+
+      // Dial +0.50 DS on trial frame and capture as M2
+      state.plusSphere = 0.50;
+      state.streakAngle = 180.0;
+      state.captureActiveAsM2();
+
+      expect(state.capturedM2Gross, equals(0.50));
+      expect(state.capturedM2Axis, equals(180.0));
+      expect(state.areBothMeridiansCaptured, isTrue);
+
+      // Calculate final Rx from captured points
+      final rx = state.calculatedRxFromCaptured;
+      expect(rx, isNotNull);
+      // Net M1 = +1.00 @ 90°, Net M2 = -1.00 @ 180°
+      // Low net = -1.00 @ 180°, High net = +1.00 @ 90°
+      // Form 1 (+Cyl): -1.00 DS / +2.00 DC x 180°
+      expect(rx!['plusSphere'], equals(-1.00));
+      expect(rx['plusCylinder'], equals(2.00));
+      expect(rx['plusAxis'], equals(180.0));
+
+      // Form 2 (-Cyl): +1.00 DS / -2.00 DC x 90°
+      expect(rx['minusSphere'], equals(1.00));
+      expect(rx['minusCylinder'], equals(-2.00));
+      expect(rx['minusAxis'], equals(90.0));
+
+      // Clear captured meridians
+      state.clearCapturedMeridians();
+      expect(state.areBothMeridiansCaptured, isFalse);
+      expect(state.capturedM1Gross, isNull);
+      expect(state.capturedM2Gross, isNull);
+    });
   });
 }

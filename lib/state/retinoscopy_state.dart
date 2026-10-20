@@ -1240,6 +1240,10 @@ class RetinoscopyState extends ChangeNotifier {
     _scissorsMotionActive = false;
     _cataractDensity = 0.0;
     _cornealOpacity = 0.0;
+    _capturedM1Gross = null;
+    _capturedM1Axis = null;
+    _capturedM2Gross = null;
+    _capturedM2Axis = null;
 
     notifyListeners();
   }
@@ -1272,6 +1276,10 @@ class RetinoscopyState extends ChangeNotifier {
     _scissorsMotionActive = random.nextBool();
     _cataractDensity = (random.nextInt(5) + 3) * 0.1; // 0.3 to 0.7
     _cornealOpacity = random.nextBool() ? 0.3 : 0.0;
+    _capturedM1Gross = null;
+    _capturedM1Axis = null;
+    _capturedM2Gross = null;
+    _capturedM2Axis = null;
 
     notifyListeners();
   }
@@ -1404,6 +1412,62 @@ class RetinoscopyState extends ChangeNotifier {
                                checkPair(userM2Power, userM2Axis, targetM1Power, targetM1Axis);
 
     return matchStandard || matchInverted;
+  }
+
+  // ── Dual Meridian Captured Neutral Points ──────────────────────────────
+  double? _capturedM1Gross;
+  double? _capturedM1Axis;
+  double? _capturedM2Gross;
+  double? _capturedM2Axis;
+
+  double? get capturedM1Gross => _capturedM1Gross;
+  double? get capturedM1Axis => _capturedM1Axis;
+  double? get capturedM2Gross => _capturedM2Gross;
+  double? get capturedM2Axis => _capturedM2Axis;
+
+  bool get areBothMeridiansCaptured => _capturedM1Gross != null && _capturedM2Gross != null;
+
+  /// Current active trial lens power (Spherical gross power dialed)
+  double get currentDialedGrossPower => _plusLensesSelected ? _plusSphere : _minusSphere;
+
+  /// Whether current active trial lens power is at neutrality for Meridian 1
+  bool get isCurrentLensM1Neutral => (currentDialedGrossPower - patientGrossM1).abs() < 0.13;
+
+  /// Whether current active trial lens power is at neutrality for Meridian 2
+  bool get isCurrentLensM2Neutral => (currentDialedGrossPower - patientGrossM2).abs() < 0.13;
+
+  /// Calculates final spherocylindrical prescription from captured dual neutral points
+  Map<String, dynamic>? get calculatedRxFromCaptured {
+    if (!areBothMeridiansCaptured) return null;
+    return calculateRetinoscopyAnswer(
+      grossM1Power: _capturedM1Gross!,
+      grossM1Axis: _capturedM1Axis ?? patientM1Axis,
+      grossM2Power: _capturedM2Gross!,
+      workingDistance: _workingDistance,
+    );
+  }
+
+  /// Lock active dialed trial lens and streak angle into Meridian 1
+  void captureActiveAsM1() {
+    _capturedM1Gross = currentDialedGrossPower;
+    _capturedM1Axis = _streakAngle;
+    notifyListeners();
+  }
+
+  /// Lock active dialed trial lens and streak angle into Meridian 2
+  void captureActiveAsM2() {
+    _capturedM2Gross = currentDialedGrossPower;
+    _capturedM2Axis = _streakAngle;
+    notifyListeners();
+  }
+
+  /// Reset captured neutral points
+  void clearCapturedMeridians() {
+    _capturedM1Gross = null;
+    _capturedM1Axis = null;
+    _capturedM2Gross = null;
+    _capturedM2Axis = null;
+    notifyListeners();
   }
 
 

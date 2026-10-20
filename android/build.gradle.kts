@@ -20,6 +20,15 @@ subprojects {
 }
 
 subprojects {
+    // Disable redundant library resource verification that causes AAPT2 daemon IPC timeouts on Windows
+    tasks.configureEach {
+        if (name.startsWith("verify") && name.endsWith("Resources")) {
+            enabled = false
+        }
+    }
+}
+
+subprojects {
     plugins.withId("com.android.library") {
         dependencies {
             add("compileOnly", "androidx.concurrent:concurrent-futures:1.2.0")

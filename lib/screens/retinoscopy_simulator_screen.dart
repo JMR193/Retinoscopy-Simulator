@@ -880,8 +880,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                     ),
                     const Divider(height: 14),
                     Text(
-                      'Refractive Error Forms (Transpositions)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDarkMode ? Colors.cyanAccent : Colors.indigo),
+                      'Refractive Error Forms (Transpositions):',
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -892,6 +891,26 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                     Text(
                       'Form 2: ${_formatRx(_state.correctSphere2, _state.correctCylinder2, _state.correctAxis2)}',
                       style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
+                    ),
+                    const Divider(height: 14),
+                    Text(
+                      'Dual Principal Neutral Points (WD: -${_state.workingDistance.toStringAsFixed(2)} D):',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDarkMode ? Colors.amberAccent : Colors.teal),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '• Meridian 1: Gross ${_state.patientGrossM1 >= 0 ? '+' : ''}${_state.patientGrossM1.toStringAsFixed(2)} DS × ${_state.patientM1Axis.toInt()}°  →  Net ${_state.patientNetM1 >= 0 ? '+' : ''}${_state.patientNetM1.toStringAsFixed(2)} DS',
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: isDarkMode ? Colors.white70 : Colors.black87),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '• Meridian 2: Gross ${_state.patientGrossM2 >= 0 ? '+' : ''}${_state.patientGrossM2.toStringAsFixed(2)} DS × ${_state.patientM2Axis.toInt()}°  →  Net ${_state.patientNetM2 >= 0 ? '+' : ''}${_state.patientNetM2.toStringAsFixed(2)} DS',
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: isDarkMode ? Colors.white70 : Colors.black87),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Deducting Working Distance (-${_state.workingDistance.toStringAsFixed(2)} D) from both gross neutral points calculates the Final Net Rx above.',
+                      style: TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: isDarkMode ? Colors.grey[400] : Colors.grey[700]),
                     ),
                   ],
                 ),
@@ -965,6 +984,216 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLiveDualMeridianCard() {
+    final bool isDarkMode = _state.isDarkMode;
+    final rx = _state.calculatedRxFromCaptured;
+    final bool bothReady = _state.areBothMeridiansCaptured && rx != null;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: bothReady ? Colors.teal : Colors.blue.withValues(alpha: 0.35),
+          width: bothReady ? 1.5 : 1.0,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    bothReady ? Icons.check_circle : Icons.swap_horizontal_circle_outlined,
+                    size: 16,
+                    color: bothReady ? Colors.tealAccent : Colors.blueAccent,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    bothReady ? 'Both Meridians Neutralized!' : 'Dual Neutral Points Tracker',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12.5,
+                      color: bothReady
+                          ? (isDarkMode ? Colors.tealAccent : Colors.teal.shade800)
+                          : (isDarkMode ? Colors.cyanAccent : Colors.blue.shade900),
+                    ),
+                  ),
+                ],
+              ),
+              InkWell(
+                onTap: () => _state.clearCapturedMeridians(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Text(
+                    'Clear',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500], decoration: TextDecoration.underline),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _state.capturedM1Gross != null
+                        ? Colors.blue.withValues(alpha: 0.15)
+                        : (isDarkMode ? Colors.white.withValues(alpha: 0.05) : Colors.grey[200]),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _state.capturedM1Gross != null ? Colors.blue : Colors.grey.shade400),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Meridian 1 (M1)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                      const SizedBox(height: 2),
+                      Text(
+                        _state.capturedM1Gross != null
+                            ? 'Gross: ${_state.capturedM1Gross! >= 0 ? '+' : ''}${_state.capturedM1Gross!.toStringAsFixed(2)} @ ${_state.capturedM1Axis?.toInt()}°'
+                            : 'Pending sweep',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _state.capturedM1Gross != null
+                              ? (isDarkMode ? Colors.white : Colors.black87)
+                              : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _state.capturedM2Gross != null
+                        ? Colors.purple.withValues(alpha: 0.15)
+                        : (isDarkMode ? Colors.white.withValues(alpha: 0.05) : Colors.grey[200]),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _state.capturedM2Gross != null ? Colors.purple : Colors.grey.shade400),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Meridian 2 (M2)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
+                      const SizedBox(height: 2),
+                      Text(
+                        _state.capturedM2Gross != null
+                            ? 'Gross: ${_state.capturedM2Gross! >= 0 ? '+' : ''}${_state.capturedM2Gross!.toStringAsFixed(2)} @ ${_state.capturedM2Axis?.toInt()}°'
+                            : 'Pending sweep',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _state.capturedM2Gross != null
+                              ? (isDarkMode ? Colors.white : Colors.black87)
+                              : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (bothReady) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isDarkMode ? const Color(0xFF0F172A) : Colors.teal.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.teal.withValues(alpha: 0.4)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Calculated Final Net Rx (Working Distance -${_state.workingDistance.toStringAsFixed(2)} D applied):',
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.tealAccent : Colors.teal.shade900),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '• Form 1 (+Cyl): ${_formatRx(rx['plusSphere'], rx['plusCylinder'], rx['plusAxis'])}',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '• Form 2 (-Cyl): ${_formatRx(rx['minusSphere'], rx['minusCylinder'], rx['minusAxis'])}',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(
+                            text: 'Form 1: ${_formatRx(rx['plusSphere'], rx['plusCylinder'], rx['plusAxis'])}\nForm 2: ${_formatRx(rx['minusSphere'], rx['minusCylinder'], rx['minusAxis'])}',
+                          ));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Copied Final Net Rx to clipboard!'), duration: Duration(seconds: 1)),
+                          );
+                        },
+                        icon: const Icon(Icons.copy, size: 12),
+                        label: const Text('Copy Rx', style: TextStyle(fontSize: 11)),
+                      ),
+                      const SizedBox(width: 6),
+                      FilledButton.icon(
+                        onPressed: () {
+                          _userSphere1Controller.text = (rx['plusSphere'] as double).toStringAsFixed(2);
+                          _userCylinder1Controller.text = (rx['plusCylinder'] as double).toStringAsFixed(2);
+                          _userAxis1Controller.text = (rx['plusAxis'] as double).toInt().toString();
+
+                          _userSphere2Controller.text = (rx['minusSphere'] as double).toStringAsFixed(2);
+                          _userCylinder2Controller.text = (rx['minusCylinder'] as double).toStringAsFixed(2);
+                          _userAxis2Controller.text = (rx['minusAxis'] as double).toInt().toString();
+
+                          _m1PowerController.text = (_state.capturedM1Gross!).toStringAsFixed(2);
+                          _m1AxisController.text = (_state.capturedM1Axis ?? 90).toInt().toString();
+                          _m2PowerController.text = (_state.capturedM2Gross!).toStringAsFixed(2);
+                          _m2AxisController.text = (_state.capturedM2Axis ?? 180).toInt().toString();
+
+                          setState(() {});
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Applied Final Net Rx to Test Answers!'), duration: Duration(seconds: 1)),
+                          );
+                        },
+                        icon: const Icon(Icons.assignment_turned_in, size: 12),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.teal.shade700,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        label: const Text('Apply to Test Answer', style: TextStyle(fontSize: 11)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -2140,18 +2369,77 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
                     ),
                   ],
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.flash_on, color: Colors.amber, size: 20),
-                    const SizedBox(width: 6),
-                    Text(
-                      'NEUTRALITY FLASH (${_state.streakAngle.toStringAsFixed(0)}° Meridian Neutralized)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.amber.shade900),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.flash_on, color: Colors.amber, size: 20),
+                        const SizedBox(width: 6),
+                        Text(
+                          'NEUTRALITY FLASH (${_state.streakAngle.toStringAsFixed(0)}° Meridian Neutralized)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.amber.shade900),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            _state.captureActiveAsM1();
+                            _m1PowerController.text = _state.currentDialedGrossPower.toStringAsFixed(2);
+                            _m1AxisController.text = _state.streakAngle.toInt().toString();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Locked as Meridian 1 Neutral: ${_state.currentDialedGrossPower >= 0 ? '+' : ''}${_state.currentDialedGrossPower.toStringAsFixed(2)} DS @ ${_state.streakAngle.toInt()}°'),
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.lock_clock, size: 13),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          label: Text('Lock M1 (${_state.currentDialedGrossPower >= 0 ? '+' : ''}${_state.currentDialedGrossPower.toStringAsFixed(2)} @ ${_state.streakAngle.toInt()}°)', style: const TextStyle(fontSize: 11)),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            _state.captureActiveAsM2();
+                            _m2PowerController.text = _state.currentDialedGrossPower.toStringAsFixed(2);
+                            _m2AxisController.text = _state.streakAngle.toInt().toString();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Locked as Meridian 2 Neutral: ${_state.currentDialedGrossPower >= 0 ? '+' : ''}${_state.currentDialedGrossPower.toStringAsFixed(2)} DS @ ${_state.streakAngle.toInt()}°'),
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.lock_clock, size: 13),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.purple.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          label: Text('Lock M2 (${_state.currentDialedGrossPower >= 0 ? '+' : ''}${_state.currentDialedGrossPower.toStringAsFixed(2)} @ ${_state.streakAngle.toInt()}°)', style: const TextStyle(fontSize: 11)),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
+              const SizedBox(height: 10),
+            ],
+            if (_state.capturedM1Gross != null || _state.capturedM2Gross != null) ...[
+              _buildLiveDualMeridianCard(),
               const SizedBox(height: 10),
             ],
             Row(

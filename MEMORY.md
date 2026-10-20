@@ -163,3 +163,37 @@ Given two orthogonal principal meridians $M_1$ at axis $\alpha_1$ and $M_2$ at a
   - `test/security_audit_test.dart`: 14 automated unit tests verifying compile-time secret fallbacks, script/XSS sanitization, email regex, safe auth error mapping, deep link URI verification, biological bounds clamping, and payload DoS rejection.
   - `test/retinoscopy_clinical_test.dart` (28 tests) and `test/widget_test.dart` (6 tests): All 48 project tests pass with 100% success.
   - `dart analyze lib test`: Clean static analysis with 0 errors and 0 warnings.
+
+---
+
+## 13. Live Dual Meridian Neutrality Tracking & Auto-Calculation (Update 2026-10)
+- **Live State Management (`lib/state/retinoscopy_state.dart`)**:
+  - Added real-time tracking for principal meridians: `capturedM1Gross`, `capturedM1Axis`, `capturedM2Gross`, `capturedM2Axis`, and `areBothMeridiansCaptured`.
+  - Added reactive neutrality detectors: `isCurrentLensM1Neutral` and `isCurrentLensM2Neutral`.
+  - Added `captureActiveAsM1()` and `captureActiveAsM2()` to lock dialed powers directly into the active examination case without tedious manual transcription.
+  - `calculatedRxFromCaptured`: Automatically computes the final net Rx (Form 1 +Cyl, Form 2 -Cyl, and Spherical Equivalent) the instant both meridians are captured.
+- **Simulator Screen Ergonomics (`lib/screens/retinoscopy_simulator_screen.dart`)**:
+  - Neutrality Flash Quick-Capture Banner: Appears over the eye when sweeping through neutrality, providing 1-tap "Lock M1" and "Lock M2" buttons.
+  - Live Dual Meridian Card (`_buildLiveDualMeridianCard`): Positioned below the eye viewport showing real-time status of both meridians, celebrated banner when both are neutralized, calculated final Rx, and 1-tap "Apply to Test Answer" / "Copy Rx".
+  - Explore Mode Transparency: Diagnosis card explicitly displays gross $M_1/M_2 \to$ net $M_1/M_2$ breakdown with step-by-step working distance deduction.
+
+---
+
+## 14. Android Release Build Stability on Windows (Update 2026-10)
+- **AAPT2 Daemon Timeout Resolution in `android/build.gradle.kts`**:
+  - Modern Android Gradle Plugin (AGP 9.0.1) on Windows runs `verifyReleaseResources` in parallel across all library subprojects (`:audioplayers_android`, `:cloud_firestore`, etc.), which triggers AAPT2 IPC pipe timeouts and worker deadlocks (hanging builds for 2+ hours).
+  - Configured `tasks.configureEach` in `subprojects` of `android/build.gradle.kts` to disable `verifyReleaseResources` for libraries:
+    ```kotlin
+    subprojects {
+        tasks.configureEach {
+            if (name.startsWith("verify") && name.endsWith("Resources")) {
+                enabled = false
+            }
+        }
+    }
+    ```
+  - App-level resource packaging (`:app:processReleaseResources`) retains complete verification for the final APK.
+- **Gradle JVM & Build Performance Optimization (`android/gradle.properties`)**:
+  - Increased Gradle heap to `-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:ReservedCodeCacheSize=512m`.
+  - Maintained `kotlin.compiler.execution.strategy=in-process` to eliminate Kotlin compiler daemon IPC crashes on Windows.
+  - Added `android.nonTransitiveRClass=true` to optimize resource symbol compilation.
