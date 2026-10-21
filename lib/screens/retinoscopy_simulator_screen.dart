@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -57,12 +58,14 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
   final TextEditingController _m2PowerController = TextEditingController();
   final TextEditingController _m2AxisController = TextEditingController();
   bool _useDualMeridianEntry = true;
+  bool _showFormFields = false;
 
   bool? _testResult;
   bool _showTestFeedback = false;
 
   final RetinoscopyAIEngine _aiEngine = RetinoscopyAIEngine();
   AIHint? _currentHint;
+  Timer? _hintDebounceTimer;
 
   @override
   void initState() {
@@ -142,13 +145,16 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
   }
 
   void _onStateChange() {
-    if (mounted) {
-      _updateAIHint(shouldSetState: true);
-    }
+    if (!mounted) return;
+    _hintDebounceTimer?.cancel();
+    _hintDebounceTimer = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) _updateAIHint(shouldSetState: true);
+    });
   }
 
   @override
   void dispose() {
+    _hintDebounceTimer?.cancel();
     _autoSweepController.dispose();
     _state.removeListener(_onStateChange);
     _userSphere1Controller.dispose();
@@ -195,7 +201,9 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
       _m2AxisController.text = (answer['grossM2Axis'] as double).toInt().toString();
     }
 
-    setState(() {});
+    setState(() {
+      _showFormFields = true;
+    });
     if (showFeedback) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -207,26 +215,28 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
   }
 
   void _captureCurrentLensToM1() {
+    _state.captureActiveAsM1();
     final double currentPower = _state.plusLensesSelected ? _state.plusSphere : _state.minusSphere;
     _m1PowerController.text = currentPower.toStringAsFixed(2);
     _m1AxisController.text = _state.streakAngle.toInt().toString();
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Captured Meridian 1: ${_m1PowerController.text} DS @ ${_m1AxisController.text}°'),
+        content: Text('Locked M1: ${_m1PowerController.text} DS @ ${_m1AxisController.text}°'),
         duration: const Duration(seconds: 1),
       ),
     );
   }
 
   void _captureCurrentLensToM2() {
+    _state.captureActiveAsM2();
     final double currentPower = _state.plusLensesSelected ? _state.plusSphere : _state.minusSphere;
     _m2PowerController.text = currentPower.toStringAsFixed(2);
     _m2AxisController.text = _state.streakAngle.toInt().toString();
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Captured Meridian 2: ${_m2PowerController.text} DS @ ${_m2AxisController.text}°'),
+        content: Text('Locked M2: ${_m2PowerController.text} DS @ ${_m2AxisController.text}°'),
         duration: const Duration(seconds: 1),
       ),
     );
@@ -320,7 +330,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
     _state.generateHardPatient();
     _clearUserInputs();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Hard Clinical Case Activated (Free Edition)')),
+      const SnackBar(content: Text('Hard Clinical Case Activated — Complex Astigmatism')),
     );
   }
 
@@ -336,6 +346,7 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
     _m2PowerController.clear();
     _m2AxisController.clear();
     setState(() {
+      _showFormFields = false;
       _showTestFeedback = false;
       _testResult = null;
     });
@@ -348,45 +359,9 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Retinoscopy Simulator',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 0.3),
-            ),
-            const SizedBox(height: 2),
-            GestureDetector(
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreScreen())).then((_) {
-                  setState(() {});
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _getEquippedStreakColor().withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _getEquippedStreakColor().withValues(alpha: 0.6), width: 0.8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.tune, size: 11, color: _getEquippedStreakColor()),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${_state.sleeveUp ? 'Concave Mirror' : 'Plane Mirror'} • ${StorageService.getEquippedCosmetic()}',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+        title: const Text(
+          'Retinoscopy Simulator',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, letterSpacing: 0.3),
         ),
         centerTitle: true,
         actions: [
@@ -1326,32 +1301,45 @@ class _RetinoscopySimulatorScreenState extends State<RetinoscopySimulatorScreen>
           ),
         ],
 
-        // Final Net Refraction Inputs (always accessible/editable)
-        Text(
-          'Final Net Prescription (Form 1 — Primary Required):',
-          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.cyanAccent : Colors.indigo),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            buildField('Sphere (DS)', _userSphere1Controller, -20, 20),
-            buildField('Cyl (DC)', _userCylinder1Controller, -6, 6),
-            buildField('Axis (°)', _userAxis1Controller, 0, 180),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Final Net Prescription (Form 2 — Transposed Optional):',
-          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.amberAccent : Colors.teal),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            buildField('Sphere (DS)', _userSphere2Controller, -20, 20),
-            buildField('Cyl (DC)', _userCylinder2Controller, -6, 6),
-            buildField('Axis (°)', _userAxis2Controller, 0, 180),
-          ],
-        ),
+        // Final Net Refraction Inputs (Progressive disclosure in Dual Meridian Mode)
+        if (!_useDualMeridianEntry || _showFormFields) ...[
+          Text(
+            'Final Net Prescription (Form 1 — Primary Required):',
+            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.cyanAccent : Colors.indigo),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              buildField('Sphere (DS)', _userSphere1Controller, -20, 20),
+              buildField('Cyl (DC)', _userCylinder1Controller, -6, 6),
+              buildField('Axis (°)', _userAxis1Controller, 0, 180),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Final Net Prescription (Form 2 — Transposed Optional):',
+            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.amberAccent : Colors.teal),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              buildField('Sphere (DS)', _userSphere2Controller, -20, 20),
+              buildField('Cyl (DC)', _userCylinder2Controller, -6, 6),
+              buildField('Axis (°)', _userAxis2Controller, 0, 180),
+            ],
+          ),
+        ] else ...[
+          Center(
+            child: TextButton.icon(
+              onPressed: () => setState(() => _showFormFields = true),
+              icon: const Icon(Icons.tune, size: 15),
+              label: const Text(
+                'Show Final Rx Fields (Manual Entry)',
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         Row(
           children: [

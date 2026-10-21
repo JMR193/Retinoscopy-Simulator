@@ -23,6 +23,7 @@ class RetinoscopeOpticsItem {
 
 /// Clinical Retinoscope Illumination & Filter Optics Calibration Screen
 typedef OpticsCalibrationScreen = StoreScreen;
+typedef RetinoscopyOpticsScreen = StoreScreen;
 
 class StoreScreen extends StatefulWidget {
   const StoreScreen({super.key});

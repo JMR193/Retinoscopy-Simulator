@@ -207,13 +207,19 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
 
-  static const List<Widget> _screens = [
-    RetinoscopySimulatorScreen(),
-    ExamScreen(),
-    PatientProfilesScreen(),
-    HandbookScreen(),
-    HistoryScreen(),
-  ];
+  // Track which tabs have been visited so we only build them on first visit
+  final Set<int> _visitedTabs = {0}; // Simulator (tab 0) built immediately
+
+  Widget _buildScreen(int index) {
+    const screens = [
+      RetinoscopySimulatorScreen(),
+      ExamScreen(),
+      PatientProfilesScreen(),
+      HandbookScreen(),
+      HistoryScreen(),
+    ];
+    return screens[index];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -222,6 +228,7 @@ class _AppShellState extends State<AppShell> {
       final targetTab = retinoscopyState.requestedAppTab!;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _selectedIndex != targetTab) {
+          _visitedTabs.add(targetTab);
           setState(() => _selectedIndex = targetTab);
         }
         retinoscopyState.clearRequestedAppTab();
@@ -233,9 +240,15 @@ class _AppShellState extends State<AppShell> {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      // Lazy IndexedStack: only builds a tab the first time it is visited.
+      // Subsequent visits reuse the already-built widget tree (state preserved).
       body: IndexedStack(
         index: _selectedIndex,
-        children: _screens,
+        children: List.generate(5, (i) {
+          if (_visitedTabs.contains(i)) return _buildScreen(i);
+          // Placeholder keeps the IndexedStack slot alive without building the screen
+          return const SizedBox.shrink();
+        }),
       ),
       bottomNavigationBar: isLandscape
           ? null // Auto-hide bottom navigation bar in landscape to fit everything on a single screen
@@ -256,6 +269,7 @@ class _AppShellState extends State<AppShell> {
                     selectedIndex: _selectedIndex,
                     onDestinationSelected: (i) {
                       HapticFeedback.selectionClick();
+                      _visitedTabs.add(i);
                       setState(() => _selectedIndex = i);
                     },
                     backgroundColor: Colors.transparent,
