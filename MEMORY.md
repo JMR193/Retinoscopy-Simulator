@@ -197,3 +197,19 @@ Given two orthogonal principal meridians $M_1$ at axis $\alpha_1$ and $M_2$ at a
   - Increased Gradle heap to `-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:ReservedCodeCacheSize=512m`.
   - Maintained `kotlin.compiler.execution.strategy=in-process` to eliminate Kotlin compiler daemon IPC crashes on Windows.
   - Added `android.nonTransitiveRClass=true` to optimize resource symbol compilation.
+
+---
+
+## 15. Simulator Simplification, Debouncing & Progressive Disclosure (Update 2026-10)
+- **AppBar Simplification**:
+  - Replaced crowded, clickable pill subtitle inside the title Column with a clean standard title `Retinoscopy Simulator`. Retinoscope Optics Calibration remains accessible from the PopupMenu and Settings Drawer.
+- **Dual-Meridian Neutrality Capture Sync**:
+  - `_captureCurrentLensToM1()` and `_captureCurrentLensToM2()` directly call `_state.captureActiveAsM1()` and `_state.captureActiveAsM2()`, ensuring the test form text controllers and the underlying reactive `RetinoscopyState` remain synchronized.
+- **AI Engine Real-Time Debouncing**:
+  - Replaced per-frame `_updateAIHint()` invocation with a 250ms `Timer` (`_hintDebounceTimer`), preventing heavy neural heuristic recalculations on every sweep touch pixel.
+- **Test Mode Progressive Disclosure**:
+  - Replaced overwhelming 10-input simultaneous layout with a clean 2-step workflow: students capture and dial $M_1$ and $M_2$ first, then tap "Calculate Final Net Rx" or "Show Final Rx Fields" to reveal Form 1 & Form 2.
+- **Lazy IndexedStack in `AppShell` (`lib/main.dart`)**:
+  - Wrapped `IndexedStack` children with a visited set tracker so that child screens (Exam, Cases, Handbook, History) are only constructed on first navigation, cutting initial startup memory pressure.
+- **Hard Case Messaging**:
+  - Replaced arcade/confusing "Free Edition" wording with professional ophthalmic messaging: "Hard Clinical Case Activated — Complex Astigmatism".
